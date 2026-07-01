@@ -40,6 +40,9 @@ export * from './home-tabs';
 export * from './home-records';
 export * from './calendar-events';
 export * from './backup-history';
+// Sprint 5: 會計 API + 會計報表
+export * from './accounting';
+export * from './accounting-reports';
 
 import { buildingsApi } from './buildings';
 import { residentsApi } from './residents';
@@ -70,6 +73,9 @@ import { homeTabsApi } from './home-tabs';
 import { homeRecordsApi } from './home-records';
 import { calendarEventsApi } from './calendar-events';
 import { backupHistoryApi } from './backup-history';
+// Sprint 5: 會計
+import { accountingApi } from './accounting';
+import { accountingReportsApi } from './accounting-reports';
 
 /**
  * 統一 api 物件 — 所有資源的便捷入口
@@ -108,4 +114,7 @@ export const api = {
   homeRecords: homeRecordsApi,
   calendarEvents: calendarEventsApi,
   backupHistory: backupHistoryApi,
+  // Sprint 5
+  accounting: accountingApi,
+  accountingReports: accountingReportsApi,
 } as const;
