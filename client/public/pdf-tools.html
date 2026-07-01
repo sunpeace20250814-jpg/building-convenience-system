@@ -1,0 +1,456 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>PDF工具箱</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+:root{
+    --primary:#6366F1;
+    --primary-light:#818CF8;
+    --primary-dark:#4F46E5;
+    --success:#10B981;
+    --warning:#F59E0B;
+    --error:#EF4444;
+    --bg-dark:#0F0F1A;
+    --bg-medium:#1A1A2E;
+    --bg-light:#252540;
+    --bg-card:rgba(30,30,50,0.8);
+    --bg-glass:rgba(255,255,255,0.05);
+    --text-primary:#F1F5F9;
+    --text-secondary:#A0AEC0;
+    --text-muted:#64748B;
+    --border:rgba(255,255,255,0.1);
+    --shadow:0 8px 32px rgba(0,0,0,0.4);
+    --radius:12px;
+    --radius-lg:16px;
+    --radius-xl:24px;
+    --transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:"Segoe UI","Microsoft JhengHei",sans-serif;font-size:14px;line-height:1.6;color:var(--text-primary);background:var(--bg-dark);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh;background:linear-gradient(135deg,var(--bg-dark) 0%,#1a1a3e 50%,var(--bg-dark) 100%)}
+.header{
+    display:flex;align-items:center;justify-content:space-between;
+    height:64px;padding:0 24px;
+    background:var(--bg-glass);backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);
+    position:relative;z-index:100;
+}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo-wrapper{
+    display:flex;align-items:center;justify-content:center;
+    width:40px;height:40px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    border-radius:var(--radius);font-size:18px;font-weight:700;color:#fff;
+    box-shadow:0 4px 15px rgba(99,102,241,0.4);
+    letter-spacing:-1px;
+}
+.app-name{font-size:18px;font-weight:600;color:var(--text-primary)}
+.nav-wrapper{
+    flex:1;margin:0 32px;overflow:hidden;
+    display:flex;align-items:center;
+}
+.nav-tabs{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;padding:4px 4px 8px;scroll-behavior:smooth;cursor:grab;user-select:none}.nav-tabs:active{cursor:grabbing}
+.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 14px;
+    border-radius:var(--radius);
+    background:transparent;
+    color:var(--text-secondary);
+    font-size:13px;font-weight:500;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition:var(--transition);
+    white-space:nowrap;
+    flex-shrink:0;
+}
+.nav-tab:hover{
+    background:var(--bg-glass);
+    color:var(--text-primary);
+    border-color:var(--border);
+}
+.nav-tab.active{
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    color:white;
+    border-color:transparent;
+    box-shadow:0 4px 15px rgba(99,102,241,0.4);
+}
+.nav-tab .tab-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:26px;height:26px;
+    background:linear-gradient(135deg,rgba(255,255,255,0.2) 0%,rgba(255,255,255,0.1) 100%);
+    border-radius:6px;font-size:11px;font-weight:700;color:#fff;
+    letter-spacing:-0.5px;
+}
+.nav-tab.active .tab-icon{
+    background:rgba(255,255,255,0.25);
+}
+.header-right{display:flex;align-items:center;gap:10px}
+.icon-btn{
+    width:40px;height:40px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:var(--radius);
+    background:var(--bg-glass);
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+    cursor:pointer;
+    transition:var(--transition);
+    font-size:16px;font-weight:600;
+}
+.icon-btn:hover{background:var(--bg-light);color:var(--text-primary);border-color:var(--primary)}
+.main-content{display:flex;flex:1;overflow:hidden}
+.page-title-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}.page-desc-container{display:flex;align-items:flex-start;gap:16px;padding:16px 20px;background:var(--bg-card);backdrop-filter:blur(20px);border-radius:var(--radius-lg);border:1px solid var(--border);margin-top:12px}.page-desc-icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);border-radius:10px;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;margin-top:2px}.page-desc-content{flex:1;min-width:0}.page-desc-title{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px}.page-desc-text{font-size:13px;color:var(--text-secondary);line-height:1.6}.page-desc-tips{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)}.page-desc-tips strong{color:var(--primary-light)}.kbd-hint{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted)}.kbd-hint kbd{background:var(--bg-dark);padding:3px 8px;border-radius:6px;font-family:monospace;font-size:11px;border:1px solid var(--border);color:var(--text-primary)}.page-container{flex:1;padding:24px;overflow-y:auto}
+.page{max-width:900px;margin:0 auto}
+.page-header{margin-bottom:24px;display:flex;flex-direction:column;gap:12px}
+.page-header-left{flex:1;min-width:0}
+.page-title{font-size:28px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:14px;color:var(--text-primary)}
+.page-title .page-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:48px;height:48px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    border-radius:var(--radius-lg);font-size:20px;font-weight:700;color:#fff;
+    box-shadow:0 4px 20px rgba(99,102,241,0.4);
+    letter-spacing:-1px;
+}
+.page-subtitle{font-size:14px;color:var(--text-secondary)}
+.page-header-right{
+    display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+    flex-shrink:0;max-width:280px;
+}
+.page-info-chip{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:var(--radius);
+    background:var(--bg-glass);border:1px solid var(--border);
+    font-size:12px;color:var(--text-secondary);
+    cursor:pointer;transition:var(--transition);
+    user-select:none;
+}
+.page-info-chip:hover{background:var(--bg-light);color:var(--text-primary);border-color:var(--primary)}
+.page-info-chip.active{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);color:#fff;border-color:transparent}
+.page-info-chip .chip-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:20px;height:20px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    border-radius:4px;font-size:10px;font-weight:700;color:#fff;
+}
+.page-info-chip.active .chip-icon{background:rgba(255,255,255,0.25)}
+.page-info-tooltip{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:8px 12px;
+    font-size:12px;color:var(--text-secondary);
+    box-shadow:var(--shadow);
+    max-width:280px;text-align:right;line-height:1.5;
+    display:none;
+}
+.page-info-tooltip.show{display:block;animation:slideDown 0.2s ease}
+.card{
+    background:var(--bg-card);backdrop-filter:blur(20px);
+    border-radius:var(--radius-lg);
+    border:1px solid var(--border);
+    padding:24px;margin-bottom:20px;
+    box-shadow:var(--shadow);
+    transition:var(--transition);
+}
+.card:hover{border-color:rgba(99,102,241,0.3)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:var(--text-primary)}
+.card-title .card-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:32px;height:32px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    border-radius:8px;font-size:13px;font-weight:700;color:#fff;
+}
+.drop-zone{
+    border:2px dashed var(--border);
+    border-radius:var(--radius-lg);
+    padding:60px 40px;text-align:center;
+    cursor:pointer;transition:var(--transition);
+    background:linear-gradient(135deg,var(--bg-glass) 0%,transparent 100%);
+    position:relative;overflow:hidden;
+}
+.drop-zone::before{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(135deg,rgba(99,102,241,0.1) 0%,transparent 50%);
+    opacity:0;transition:var(--transition);
+}
+.drop-zone:hover::before,.drop-zone.dragover::before{opacity:1}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--primary);border-style:solid}
+.drop-zone.dragover{transform:scale(1.02)}
+.drop-zone-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:80px;height:80px;
+    margin:0 auto 16px;
+    background:linear-gradient(135deg,var(--bg-light) 0%,var(--bg-medium) 100%);
+    border-radius:var(--radius-lg);
+    font-size:32px;font-weight:700;color:var(--primary);
+    border:2px solid var(--border);
+    transition:var(--transition);
+}
+.drop-zone:hover .drop-zone-icon{
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    color:#fff;border-color:transparent;
+    transform:scale(1.05);
+}
+.drop-zone-text{font-size:18px;color:var(--text-primary);margin-bottom:8px;font-weight:500}
+.drop-zone-hint{font-size:13px;color:var(--text-muted)}
+.file-item{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:14px}
+.file-info{flex:1;min-width:0}
+.file-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
+.btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    padding:12px 28px;border-radius:var(--radius);
+    font-size:14px;font-weight:600;
+    border:none;cursor:pointer;
+    transition:var(--transition);
+}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none!important}
+.btn-primary{
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    color:white;box-shadow:0 4px 15px rgba(99,102,241,0.4);
+}
+.btn-primary:hover:not(:disabled){
+    transform:translateY(-2px);
+    box-shadow:0 8px 25px rgba(99,102,241,0.5);
+}
+.btn-primary:active:not(:disabled){transform:translateY(0)}
+.btn-success{background:linear-gradient(135deg,var(--success) 0%,#059669 100%);color:white}
+.btn-secondary{background:var(--bg-light);color:var(--text-primary);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg-medium);border-color:var(--primary)}
+.input{
+    width:100%;padding:12px 16px;
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    background:var(--bg-dark);
+    color:var(--text-primary);font-size:14px;
+    transition:var(--transition);
+}
+.input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
+.input::placeholder{color:var(--text-muted)}
+.input-group{margin-bottom:16px}
+.input-label{display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:8px}
+.radio-group{display:flex;flex-wrap:wrap;gap:16px}
+.radio-item{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text-secondary);transition:var(--transition)}
+.radio-item:hover{color:var(--text-primary)}
+.radio-item input{width:18px;height:18px;accent-color:var(--primary)}
+.slider-container{display:flex;align-items:center;gap:16px}
+.slider{flex:1;height:6px;border-radius:3px;background:var(--bg-light);appearance:none;cursor:pointer}
+.slider::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);box-shadow:0 2px 10px rgba(99,102,241,0.5)}
+.slider-value{min-width:50px;text-align:center;font-size:14px;font-weight:600;color:var(--primary)}
+.progress-modal{
+    display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);
+    z-index:1000;align-items:center;justify-content:center;
+}
+.progress-modal.active{display:flex}
+.progress-content{
+    background:var(--bg-card);backdrop-filter:blur(20px);
+    border-radius:var(--radius-xl);padding:40px;
+    text-align:center;min-width:340px;
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+}
+.progress-ring-wrapper{position:relative;width:140px;height:140px;margin:0 auto 24px}
+.progress-ring{transform:rotate(-90deg)}
+.progress-ring-bg{fill:none;stroke:var(--bg-light);stroke-width:10}
+.progress-ring-fill{
+    fill:none;stroke:url(#gradient);stroke-width:10;
+    stroke-linecap:round;
+    stroke-dasharray:314;stroke-dashoffset:314;
+    transition:stroke-dashoffset 0.5s ease;
+}
+.progress-text{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    font-size:32px;font-weight:700;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.progress-info{font-size:15px;color:var(--text-primary);margin-bottom:6px;font-weight:500}
+.progress-file{font-size:13px;color:var(--text-muted)}
+.toast-container{
+    position:fixed;bottom:24px;right:24px;z-index:1001;
+    display:flex;flex-direction:column;gap:12px;
+}
+.toast{
+    padding:16px 24px;border-radius:var(--radius);
+    background:var(--bg-card);backdrop-filter:blur(20px);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+    animation:slideIn 0.4s cubic-bezier(0.4,0,0.2,1);
+    display:flex;align-items:center;gap:12px;
+    font-size:14px;font-weight:500;
+}
+.toast.success{border-color:var(--success);background:linear-gradient(135deg,rgba(16,185,129,0.2) 0%,var(--bg-card) 100%)}
+.toast.error{border-color:var(--error);background:linear-gradient(135deg,rgba(239,68,68,0.2) 0%,var(--bg-card) 100%)}
+.toast.warning{border-color:var(--warning);background:linear-gradient(135deg,rgba(245,158,11,0.2) 0%,var(--bg-card) 100%)}
+.toast-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:28px;height:28px;
+    border-radius:8px;font-size:14px;font-weight:700;color:#fff;
+}
+.toast.success .toast-icon{background:linear-gradient(135deg,var(--success) 0%,#059669 100%)}
+.toast.error .toast-icon{background:linear-gradient(135deg,var(--error) 0%,#DC2626 100%)}
+.toast.warning .toast-icon{background:linear-gradient(135deg,var(--warning) 0%,#D97706 100%)}
+.toast.info .toast-icon{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.footer{
+    display:flex;justify-content:space-between;align-items:center;
+    height:40px;padding:0 24px;
+    background:var(--bg-glass);backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    font-size:12px;
+}
+.status{display:flex;align-items:center;gap:8px;color:var(--success)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.version{color:var(--text-muted)}
+.thumbnail-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+    gap:16px;padding:8px;
+}
+.thumbnail{
+    aspect-ratio:1;
+    background:var(--bg-dark);
+    border-radius:var(--radius);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:var(--transition);
+    border:2px solid transparent;
+    overflow:hidden;position:relative;
+}
+.thumbnail:hover{border-color:var(--primary);transform:translateY(-4px);box-shadow:0 8px 20px rgba(99,102,241,0.3)}
+.thumbnail canvas{width:100%;height:100%;object-fit:contain}
+.thumbnail .page-num{
+    position:absolute;bottom:6px;right:6px;
+    background:var(--bg-dark);padding:2px 8px;
+    border-radius:6px;font-size:11px;font-weight:600;
+    color:var(--text-secondary);
+}
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:12px}
+.feature-chip{
+    display:flex;align-items:center;gap:10px;
+    padding:14px 18px;border-radius:var(--radius);
+    background:var(--bg-light);border:1px solid var(--border);
+    font-size:13px;color:var(--text-secondary);
+    cursor:pointer;transition:var(--transition);
+}
+.feature-chip:hover{background:var(--bg-medium);border-color:var(--primary);color:var(--text-primary)}
+.feature-chip .chip-icon{
+    display:flex;align-items:center;justify-content:center;
+    width:28px;height:28px;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+    border-radius:6px;font-size:11px;font-weight:700;color:#fff;
+}
+@media(max-width:900px){
+    .nav-wrapper{margin:0 16px}
+    .page-container{padding:16px}
+    .page-header{flex-direction:column;gap:12px}
+    .page-header-right{align-items:flex-start;max-width:none;width:100%}
+}
+@media(prefers-color-scheme:light){
+    :root:not([data-theme=dark]){
+        --bg-dark:#F8FAFC;--bg-medium:#E2E8F0;--bg-light:#CBD5E1;
+        --bg-card:rgba(255,255,255,0.9);--bg-glass:rgba(255,255,255,0.7);
+        --text-primary:#0F172A;--text-secondary:#475569;--text-muted:#94A3B8;
+        --border:#E2E8F0;
+    }
+}
+[data-theme=light]{
+    --bg-dark:#F8FAFC;--bg-medium:#E2E8F0;--bg-light:#CBD5E1;
+    --bg-card:rgba(255,255,255,0.9);--bg-glass:rgba(255,255,255,0.7);
+    --text-primary:#0F172A;--text-secondary:#475569;--text-muted:#94A3B8;
+    --border:#E2E8F0;
+}
+    </style>
+</head>
+<body>
+<div id="app">
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-wrapper">PDF</div>
+            <span class="app-name">PDF 萬用工具箱</span>
+        </div>
+        <div class="nav-wrapper">
+            <nav class="nav-tabs" id="nav-tabs"></nav>
+        </div>
+        <div class="header-right">
+            <button class="icon-btn" id="theme-toggle" title="切換主題">D</button>
+        </div>
+    </header>
+    <main class="main-content">
+        <div class="page-container" id="page-container"></div>
+    </main>
+    <footer class="footer">
+        <div class="status"><span class="status-dot"></span><span id="status">系統就緒</span></div>
+        <div class="version">v2.0 Pro</div>
+    </footer>
+    <div class="toast-container" id="toast-container"></div>
+    <div class="progress-modal" id="progress-modal">
+        <div class="progress-content">
+            <svg style="position:absolute;width:0;height:0"><defs><linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366F1"/><stop offset="100%" stop-color="#818CF8"/></linearGradient></defs></svg>
+            <div class="progress-ring-wrapper">
+                <svg class="progress-ring" viewBox="0 0 100 100">
+                    <circle class="progress-ring-bg" cx="50" cy="50" r="45"/>
+                    <circle class="progress-ring-fill" cx="50" cy="50" r="45" id="progress-ring"/>
+                </svg>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
+            <div class="progress-info" id="progress-info">處理中...</div>
+            <div class="progress-file" id="progress-file"></div>
+        </div>
+    </div>
+</div>
+<script>
+const FEATURES={
+    convert:{id:"convert",name:"PDF轉圖片",abbrev:"圖",description:"將PDF文件轉換為圖片格式"},
+    merge:{id:"merge",name:"合併PDF",abbrev:"合",description:"將多個PDF文件合併為一個"},
+    split:{id:"split",name:"拆分PDF",abbrev:"拆",description:"將PDF拆分為多個檔案"},
+    rotate:{id:"rotate",name:"旋轉PDF",abbrev:"轉",description:"旋轉PDF頁面角度"},
+    compress:{id:"compress",name:"壓縮PDF",abbrev:"壓",description:"壓縮PDF檔案大小"},
+    watermark:{id:"watermark",name:"添加水印",abbrev:"印",description:"為PDF添加文字水印"},
+    word:{id:"word",name:"Word工具",abbrev:"W",description:"PDF轉Word文件"},
+    excel:{id:"excel",name:"Excel工具",abbrev:"X",description:"PDF轉Excel工作表"},
+    imgtools:{id:"imgtools",name:"圖片工具",abbrev:"圖",description:"圖片格式轉換和壓縮"},
+    texttools:{id:"texttools",name:"文字工具",abbrev:"文",description:"PDF文字提取和處理"}
+};
+let current="convert",files=[],pdfDoc=null;
+function init(){initTheme();renderTabs();bindEvents();load("convert");pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
+function initTheme(){const saved=localStorage.getItem("theme");if(saved){setTheme(saved);}else{setTheme(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");}}
+function setTheme(theme){document.documentElement.setAttribute("data-theme",theme);document.getElementById("theme-toggle").textContent=theme==="dark"?"D":"L";localStorage.setItem("theme",theme);}
+function toggleTheme(){const c=document.documentElement.getAttribute("data-theme")||"dark";setTheme(c==="dark"?"light":"dark");}
+function formatFileSize(bytes){if(bytes===0)return"0 B";const k=1024,sizes=["B","KB","MB","GB"];const i=Math.floor(Math.log(bytes)/Math.log(k));return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+" "+sizes[i];}
+function showToast(message,type="info",duration=3000){const c=document.getElementById("toast-container");const t=document.createElement("div");t.className="toast "+type;const icons={success:"V",error:"X",warning:"!",info:"i"};t.innerHTML='<div class="toast-icon">'+icons[type]+'</div><span>'+message+'</span>';c.appendChild(t);setTimeout(()=>{t.style.animation="slideIn 0.3s ease reverse";setTimeout(()=>t.remove(),300);},duration);}
+function showModal(id){document.getElementById(id).classList.add("active");}
+function hideModal(id){document.getElementById(id).classList.remove("active");}
+function updateProgressRing(percent){const ring=document.getElementById("progress-ring");const text=document.getElementById("progress-text");const c=314;ring.style.strokeDashoffset=c-(percent/100)*c;text.textContent=Math.round(percent)+"%";}
+function setProgressInfo(info,file=""){document.getElementById("progress-info").textContent=info;document.getElementById("progress-file").textContent=file;}
+function setStatus(text){document.getElementById("status").textContent=text;}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function renderTabs(){const c=document.getElementById("nav-tabs");c.innerHTML="";Object.values(FEATURES).forEach(f=>{const b=document.createElement("button");b.className="nav-tab"+(f.id===current?" active":"");b.innerHTML='<span class="tab-icon">'+f.abbrev+'</span><span>'+f.name+'</span>';b.onclick=()=>load(f.id);c.appendChild(b);});}
+function load(id){current=id;const f=FEATURES[id];document.querySelectorAll(".nav-tab").forEach((t,i)=>t.classList.toggle("active",Object.values(FEATURES)[i].id===id));document.getElementById("page-container").innerHTML=getPageHTML(f);initPage();setStatus(f.name);}
+function getPageHTML(f){let s="";switch(f.id){case"convert":s='<div class="input-group"><label class="input-label">輸出格式</label><div class="radio-group"><label class="radio-item"><input type="radio" name="fmt" value="png" checked>PNG</label><label class="radio-item"><input type="radio" name="fmt" value="jpeg">JPG</label></div></div><div class="input-group"><label class="input-label">解析度 (DPI): <span id="dpi-val" class="slider-value">150</span></label><input type="range" class="slider" id="dpi-slider" min="72" max="300" value="150"></div>';break;case"merge":s='<div class="input-group"><label class="input-label">輸出檔案名稱</label><input type="text" class="input" id="output-name" placeholder="merged.pdf" value="merged.pdf"></div>';break;case"split":s='<div class="input-group"><label class="input-label">拆分方式</label><div class="radio-group"><label class="radio-item"><input type="radio" name="split-mode" value="all" checked>全部頁面</label><label class="radio-item"><input type="radio" name="split-mode" value="range">指定範圍</label></div></div><div class="input-group" id="range-group" style="display:none"><label class="input-label">頁面範圍 (如: 1-3, 5, 7-10)</label><input type="text" class="input" id="page-range" placeholder="1-3, 5, 7-10"></div>';break;case"rotate":s='<div class="input-group"><label class="input-label">旋轉角度</label><div class="radio-group"><label class="radio-item"><input type="radio" name="angle" value="90" checked>90°</label><label class="radio-item"><input type="radio" name="angle" value="180">180°</label><label class="radio-item"><input type="radio" name="angle" value="270">270°</label></div></div>';break;case"compress":s='<div class="input-group"><label class="input-label">壓縮程度</label><div class="radio-group"><label class="radio-item"><input type="radio" name="level" value="low" checked>低</label><label class="radio-item"><input type="radio" name="level" value="medium">中</label><label class="radio-item"><input type="radio" name="level" value="high">高</label></div></div>';break;case"watermark":s='<div class="input-group"><label class="input-label">水印文字</label><input type="text" class="input" id="watermark-text" placeholder="機密文件" value="機密文件"></div><div class="input-group"><label class="input-label">透明度: <span id="opacity-val" class="slider-value">30</span>%</label><input type="range" class="slider" id="opacity-slider" min="10" max="100" value="30"></div>';break;default:s='<div class="feature-grid"><div class="feature-chip"><span class="chip-icon">W</span>Word轉換</div><div class="feature-chip"><span class="chip-icon">X</span>Excel轉換</div><div class="feature-chip"><span class="chip-icon">圖</span>圖片工具</div><div class="feature-chip"><span class="chip-icon">文</span>文字提取</div></div><p style="margin-top:16px;color:var(--text-muted);font-size:13px">這些功能需要額外函式庫支援，瀏覽器版本將在未來更新中提供。</p>';}return'<div class="page"><div class="page-header"><h1 class="page-title"><span class="page-icon">'+f.abbrev+'</span>'+f.name+'</h1><p class="page-subtitle">'+f.description+'</p></div><div class="card drop-zone" id="dz"><div class="drop-zone-icon">PDF</div><div class="drop-zone-text">拖放 PDF 檔案到這裡</div><div class="drop-zone-hint">或點擊選擇檔案 · 支援 PDF 檔案</div></div><div class="card" id="file-info" style="display:none"><div class="card-title"><span class="card-icon">+</span>已選擇</div><div id="file-details"></div></div><div class="card" id="preview-card" style="display:none"><div class="card-title"><span class="card-icon">P</span>預覽</div><div class="thumbnail-grid" id="thumbnail-grid"></div></div><div class="card"><div class="card-title"><span class="card-icon">S</span>設定</div>'+s+'</div><div style="text-align:center;margin-top:8px"><button class="btn btn-primary" id="process-btn" onclick="process()" disabled>開始處理</button></div></div>';}
+
+
+function initPage(){const dz=document.getElementById("dz");dz.onclick=selectFile;dz.ondragover=e=>e.preventDefault();dz.ondragleave=()=>dz.classList.remove("dragover");dz.ondrop=e=>{e.preventDefault();dz.classList.remove("dragover");handleDrop(e.dataTransfer.files);};dz.ondragenter=()=>dz.classList.add("dragover");const dpiSlider=document.getElementById("dpi-slider");if(dpiSlider)dpiSlider.oninput=e=>document.getElementById("dpi-val").textContent=e.target.value;const opacitySlider=document.getElementById("opacity-slider");if(opacitySlider)opacitySlider.oninput=e=>document.getElementById("opacity-val").textContent=e.target.value;document.querySelectorAll('input[name="split-mode"]').forEach(r=>r.onchange=e=>{document.getElementById("range-group").style.display=e.target.value==="range"?"block":"none";});}
+let fileInput=null;
+function selectFile(){if(!fileInput){fileInput=document.createElement("input");fileInput.type="file";fileInput.accept=".pdf";fileInput.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);};}fileInput.click();}
+async function handleDrop(fileList){const file=fileList[0];if(file&&file.type==="application/pdf"){loadFile(file);}else{showToast("請選擇 PDF 檔案","warning");}}
+async function loadFile(file){files=[{name:file.name,size:file.size,file:file}];document.getElementById("file-info").style.display="block";document.getElementById("file-details").innerHTML='<div class="file-item"><div class="file-info"><div class="file-name">'+file.name+'</div><div class="file-meta">大小: '+formatFileSize(file.size)+'</div></div></div>';document.getElementById("process-btn").disabled=false;const arrayBuffer=await file.arrayBuffer();pdfDoc=await pdfjsLib.getDocument({data:arrayBuffer}).promise;const previewCard=document.getElementById("preview-card");const grid=document.getElementById("thumbnail-grid");previewCard.style.display="block";grid.innerHTML="";for(let i=1;i<=Math.min(pdfDoc.numPages,20);i++){const page=await pdfDoc.getPage(i);const scale=100/page.view[1]*0.5;const viewport=page.getViewport({scale:scale});const canvas=document.createElement("canvas");canvas.width=viewport.width;canvas.height=viewport.height;await page.render({canvasContext:canvas.getContext("2d"),viewport:viewport}).promise;const div=document.createElement("div");div.className="thumbnail";div.appendChild(canvas);const num=document.createElement("span");num.className="page-num";num.textContent=i;div.appendChild(num);div.title="第 "+i+" 頁";grid.appendChild(div);}if(pdfDoc.numPages>20)grid.innerHTML+='<p style="color:var(--text-muted);text-align:center;grid-column:1/-1">還有 '+(pdfDoc.numPages-20)+' 頁...</p>';showToast("已載入: "+file.name,"success");}
+async function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);}
+async function process(){if(!files.length||!pdfDoc){showToast("請先選擇檔案","warning");return;}showModal("progress-modal");updateProgressRing(0);setProgressInfo("處理中...");try{const feat=FEATURES[current];switch(feat.id){case"convert":await convertToImage();break;case"merge":await mergePDF();break;case"split":await splitPDF();break;case"rotate":await rotatePDF();break;case"compress":await compressPDF();break;case"watermark":await addWatermark();break;default:showToast("此功能暫不可用","warning");}}catch(e){console.error(e);showToast("錯誤: "+e.message,"error");}hideModal("progress-modal");}
+async function convertToImage(){const fmt=document.querySelector('input[name="fmt"]:checked').value;const dpi=parseInt(document.getElementById("dpi-slider")?.value||150);const scale=dpi/72;const baseName=files[0].name.replace(".pdf","");for(let i=1;i<=pdfDoc.numPages;i++){updateProgressRing((i/pdfDoc.numPages)*100);setProgressInfo("轉換第 "+i+" 頁...");const page=await pdfDoc.getPage(i);const viewport=page.getViewport({scale:scale});const canvas=document.createElement("canvas");canvas.width=viewport.width;canvas.height=viewport.height;await page.render({canvasContext:canvas.getContext("2d"),viewport:viewport}).promise;const blob=await new Promise(resolve=>canvas.toBlob(resolve,fmt==="png"?"image/png":"image/jpeg",0.92));await downloadBlob(blob,baseName+"_page"+i+"."+fmt);await sleep(100);}showToast("轉換完成！","success");}
+let mergeFileInput=null;
+async function mergePDF(){showToast("請選擇多個 PDF 進行合併","info");if(!mergeFileInput){mergeFileInput=document.createElement("input");mergeFileInput.type="file";mergeFileInput.accept=".pdf";mergeFileInput.multiple=true;mergeFileInput.onchange=async e=>{const handles=e.target.files;if(handles.length<2){showToast("請至少選擇 2 個 PDF","warning");return;}try{const pdfLibDoc=await PDFLib.PDFDocument.create();for(let i=0;i<handles.length;i++){updateProgressRing((i/handles.length)*100);setProgressInfo("合併第 "+(i+1)+" 個檔案...");const ext=await PDFLib.PDFDocument.load(await handles[i].arrayBuffer());const pages=await pdfLibDoc.copyPages(ext,ext.getPageIndices());pages.forEach(p=>pdfLibDoc.addPage(p));await sleep(100);}const pdfBytes=await pdfLibDoc.save();const blob=new Blob([pdfBytes],{type:"application/pdf"});await downloadBlob(blob,"merged.pdf");showToast("合併完成！","success");}catch(err){showToast("錯誤: "+err.message,"error");}}};mergeFileInput.click();}
+async function splitPDF(){const mode=document.querySelector('input[name="split-mode"]:checked').value;const rangeStr=document.getElementById("page-range")?.value||"";let ranges=[];if(mode==="range"&&rangeStr){ranges=rangeStr.split(",").map(s=>{const [start,end]=s.split("-").map(Number);return end?Array.from({length:end-start+1},(_,i)=>start+i):[start];}).flat();}else{ranges=Array.from({length:pdfDoc.numPages},(_,i)=>i+1);}const pdfLibDoc=await PDFLib.PDFDocument.load(await files[0].file.arrayBuffer());const baseName=files[0].name.replace(".pdf","");for(let i=0;i<ranges.length;i++){updateProgressRing((i/ranges.length)*100);setProgressInfo("處理第 "+ranges[i]+" 頁...");const newDoc=await PDFLib.PDFDocument.create();const [page]=await newDoc.copyPages(pdfLibDoc,[ranges[i]-1]);newDoc.addPage(page);const pdfBytes=await newDoc.save();const blob=new Blob([pdfBytes],{type:"application/pdf"});await downloadBlob(blob,baseName+"_page"+ranges[i]+".pdf");await sleep(100);}showToast("拆分完成！","success");}
+async function rotatePDF(){const angle=parseInt(document.querySelector('input[name="angle"]:checked').value);const pdfLibDoc=await PDFLib.PDFDocument.load(await files[0].file.arrayBuffer());const pages=pdfLibDoc.getPages();for(let i=0;i<pages.length;i++){updateProgressRing((i/pages.length)*100);pages[i].setRotation(PDFLib.degrees((pages[i].getRotation().angle+angle)%360));await sleep(50);}const pdfBytes=await pdfLibDoc.save();const blob=new Blob([pdfBytes],{type:"application/pdf"});const baseName=files[0].name.replace(".pdf","");await downloadBlob(blob,baseName+"_rotated.pdf");showToast("旋轉完成！","success");}
+async function compressPDF(){const pdfLibDoc=await PDFLib.PDFDocument.load(await files[0].file.arrayBuffer());updateProgressRing(50);setProgressInfo("壓縮中...");const options={useObjectStreams:true};const pdfBytes=await pdfLibDoc.save(options);const blob=new Blob([pdfBytes],{type:"application/pdf"});const baseName=files[0].name.replace(".pdf","");await downloadBlob(blob,baseName+"_compressed.pdf");showToast("壓縮完成！","success");}
+async function addWatermark(){const text=document.getElementById("watermark-text")?.value||"WATERMARK";const opacity=parseInt(document.getElementById("opacity-slider")?.value||30)/100;const pdfLibDoc=await PDFLib.PDFDocument.load(await files[0].file.arrayBuffer());const pages=pdfLibDoc.getPages();for(let i=0;i<pages.length;i++){updateProgressRing((i/pages.length)*100);setProgressInfo("添加水印至第 "+(i+1)+" 頁...");const {width,height}=pages[i].getSize();pages[i].drawText(text,{x:width/2-50,y:height/2,size:40,opacity:opacity,color:PDFLib.rgb(0.5,0.5,0.5)});await sleep(50);}const pdfBytes=await pdfLibDoc.save();const blob=new Blob([pdfBytes],{type:"application/pdf"});const baseName=files[0].name.replace(".pdf","");await downloadBlob(blob,baseName+"_watermarked.pdf");showToast("水印添加完成！","success");}
+
+function bindEvents(){const navTabs=document.querySelector('.nav-tabs');if(navTabs){let isDown=false,startX,scrollLeft;navTabs.addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){e.preventDefault();navTabs.scrollLeft+=e.deltaY;}},{passive:false});navTabs.addEventListener('mousedown',e=>{isDown=true;startX=e.pageX-navTabs.offsetLeft;scrollLeft=navTabs.scrollLeft;});['mouseleave','mouseup'].forEach(ev=>navTabs.addEventListener(ev,()=>isDown=false));navTabs.addEventListener('mousemove',e=>{if(!isDown)return;e.preventDefault();const x=e.pageX-navTabs.offsetLeft;const walk=(x-startX)*1.5;navTabs.scrollLeft=scrollLeft-walk;});}document.getElementById('theme-toggle').onclick=toggleTheme;document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='o'){e.preventDefault();selectFile();}});}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>

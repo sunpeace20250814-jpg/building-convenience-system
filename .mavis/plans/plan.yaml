@@ -1,0 +1,261 @@
+version: 1
+plan:
+  name: 'V4 住戶管理系統 — 商業可用收尾'
+  max_concurrency: 4
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # === Track 1: 後端 routes 對齊 V4 schema ===
+  - id: 'backend-routes-align'
+    title: '後端 routes 對齊 V4 完整 schema（28 表 CRUD）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：把 server/src/routes/*.ts 與 server/src/db/repository.ts 升級到與
+      server/src/db/schema.ts（28 表）對齊，並補上 V1 擴充表的 CRUD。
+
+      必讀：
+      - server/src/db/schema.ts（28 表結構）
+      - server/src/db/index.ts（已升級 init + healthCheck）
+      - server/src/routes/*.ts 現有路由
+      - client/src/storage/schema.ts（前端對應欄位）
+
+      必做：
+      1. 重寫 server/src/db/repository.ts 為通用 Repository<T> 模式
+         （參考 client/src/storage/database.ts 的 Repository class）。
+         28 表都自動 getAll / getById / create / update / delete。
+      2. 新增 / 補齊以下路由檔（每個表一份）：
+         - routes/floors.ts
+         - routes/facilities.ts
+         - routes/house-statuses.ts
+         - routes/parking-statuses.ts
+         - routes/employees.ts
+         - routes/shifts.ts
+         - routes/schedule-holidays.ts
+         - routes/training.ts
+         - routes/allowance-holders.ts
+         - routes/allowance-records.ts
+         - routes/expense-budgets.ts
+         - routes/backup-history.ts
+         - routes/home-records.ts
+         - routes/calendar-events.ts
+      3. 現有 routes（residents / expenses / schedule / settings / home-tabs），
+         升級 SQL 欄位到 V4 完整版（含 floors/facilities/parking_statuses 等關聯）。
+      4. 在 server/src/index.ts 註冊所有新路由。
+      5. 每個路由用 Fastify 的 TypeBox / JSON Schema 做請求驗證。
+      6. AI 友善：每個檔頭加 JSDoc 說明用途、輸入輸出、與 client 對應關係。
+
+      驗證標準：
+      - `npx tsc --noEmit -p server` 0 錯誤
+      - `node --check dist/index.js`（或 tsx src/index.ts）能啟動
+      - 每個 /api/<resource> 端點都存在（從程式碼盤點）
+
+      完成時報告：
+      - 修改/新增的檔案清單
+      - 每個端點的 HTTP 方法 + 路徑 + 用途（簡表）
+      - typecheck 結果
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      獨立驗證 C:\Users\sunpe\dev\v4-resident-system\server\
+      1. 跑 `npx tsc --noEmit -p server` 必須 0 錯誤
+      2. 用 grep 確認 28 個表名（參考 schema.ts）都有對應的 repository function
+         （SELECT 至少出現在 28 個檔案）
+      3. 確認 server/src/index.ts 至少註冊了 13 個新路由
+      4. 嘗試 `npx tsx src/index.ts` 啟動 server（最多等 5 秒，看 startup log）
+         - 應看到「資料庫初始化完成」、「V4 Server running」
+         - 任何 throw / error = FAIL
+      5. 確認每個 routes 檔頭都有 JSDoc 註解
+      6. 不需要寫程式，只要核對檔案存在 + 內容正確 + 能啟動
+      回報 PASS/FAIL + 缺失清單
+    max_retries: 2
+
+  # === Track 2: Docker 化 ===
+  - id: 'docker-deploy'
+    title: 'Dockerfile + docker-compose（server + 前端可選）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：建立可一鍵部署的 Docker 環境，支援個人 VPS（1-2 GB RAM 即可）
+
+      必做：
+      1. server/Dockerfile — 多階段 build（先編譯 TS，再用 node:22-alpine 跑）
+         - 用戶可選 SQLite 持久化（VOLUME /data）
+         - PORT 環境變數
+         - 容器啟動 = node dist/index.js
+      2. client/Dockerfile — 多階段 build，先 build:font + tsc + vite build，
+         再用 nginx:alpine serve dist/
+         - 支援 /api 反代到 server
+      3. docker-compose.yml（在根目錄）— 兩個服務：
+         - api（server + SQLite volume）
+         - web（client + nginx）
+         - 預設 PORT：web 8080，api 3001
+         - volume 命名：v4-data
+      4. nginx 設定（client/nginx.conf 或 inline）：
+         - SPA fallback 到 index.html
+         - /api/* proxy_pass 到 api:3001
+      5. .dockerignore（server/ + client/ + 根目錄）
+      6. 一份 deploy.example.sh 或 docs/deploy.md，5 步驟上線
+         （給非技術管委會主委看也懂的程度）
+
+      驗證：
+      - `docker --version` 可用時能跑（不一定真跑，描述預期行為即可）
+      - Dockerfile 語法正確（用 hadolint 風格自我檢查）
+
+      完成時報告：
+      - 修改/新增的檔案
+      - docker-compose 啟動預期行為（curl web:8080 應回 index.html）
+      - 4GB RAM VPS 預期資源使用（image size、記憶體）
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\
+      1. 確認檔案存在：server/Dockerfile, client/Dockerfile, docker-compose.yml,
+         client/nginx.conf（或等效位置）
+      2. server/Dockerfile 用 node:22-alpine 為基礎映像
+      3. client/Dockerfile 用多階段 build，最終映像 < 80MB
+      4. docker-compose.yml 包含 api + web 服務，且有 volume mount 給 SQLite
+      5. SPA fallback 在 nginx config 中存在（try_files $uri /index.html）
+      6. 檢查 README/docs/deploy.md 是否有 5 步驟說明
+      7. 沒有多餘的 devDependencies 被打包到最終 image
+      回報 PASS/FAIL + 改進建議
+    max_retries: 2
+
+  # === Track 3: i18n ===
+  - id: 'i18n-multilang'
+    title: 'i18n 多語系（繁中/簡中/英文）+ 語言切換 UI'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system\client
+
+      目標：讓用戶可在「繁體中文 / 簡體中文 / 英文」間切換介面
+
+      必做：
+      1. pnpm add react-i18next i18next i18next-browser-languagedetector
+      2. src/i18n/index.ts — i18n 初始化 + 預設語言偵測（navigator.language → zh-TW）
+      3. src/i18n/locales/zh-TW.json（完整繁中 — 現有文字的 baseline）
+      4. src/i18n/locales/zh-CN.json（簡中）
+      5. src/i18n/locales/en.json（英文）
+      6. 在 main.tsx 引入 i18n 初始化（在 installGlobalErrorHandlers 後）
+      7. 在 Sidebar 加語言切換器（下拉選單），存 localStorage 'v4-lang'
+      8. 至少完成這幾個模組的翻譯 key：
+         - settings, residents, expenses, schedule, backup, home-tabs, common
+         - 涵蓋 Sidebar、PageHeader、按鈕、表單 label
+      9. i18n 變更即時生效（無需 reload）
+      10. 測試：src/i18n/i18n.test.ts — 確認每個 key 在三語都存在
+
+      策略：
+      - 不需要逐字翻譯所有文字，先完成「結構性 key」+ 主要可見文字
+      - 缺翻譯的 key fallback 到 zh-TW（避免顯示空白）
+      - 格式：en.json 用 {{count}} 插值，跟 zh-TW 一致
+
+      驗證：
+      - `pnpm test` 全綠（含新加的 i18n.test.ts）
+      - `pnpm typecheck` 0 錯誤
+
+      完成時報告：
+      - 新增/修改檔案
+      - 三語 key 數量統計
+      - 哪些模組已完整翻譯、哪些只有部分
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\client\
+      1. 跑 `pnpm test` 必須全綠
+      2. 跑 `pnpm typecheck` 必須 0 錯誤
+      3. 三個 locale 檔案都存在：zh-TW.json, zh-CN.json, en.json
+      4. 檢查 zh-TW.json 是「基線」（key 最多），zh-CN.json 和 en.json
+         的 key 必須是 zh-TW.json 的子集（或相等）
+      5. i18n.test.ts 確實測試了三語 key 對齊
+      6. Sidebar.tsx 有語言切換器
+      7. main.tsx 引入 i18n
+      回報 PASS/FAIL + 各語 key 數量
+    max_retries: 2
+
+  # === Track 4: PWA ===
+  - id: 'pwa-offline'
+    title: 'PWA + Service Worker + manifest（離線強化 + 可安裝）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system\client
+
+      目標：用戶可「加到主畫面」離線使用 V4，如同原生 App
+
+      必做：
+      1. pnpm add vite-plugin-pwa
+      2. vite.config.ts 註冊 VitePWA：
+         - registerType: 'autoUpdate'
+         - manifest：name, short_name, theme_color, icons（用 public/ 內 SVG）
+         - workbox：precache dist/* 全部、runtime cache API 與 CDN
+      3. public/icon-192.png + public/icon-512.png（簡單 SVG 轉 PNG 或 placeholder）
+      4. public/manifest.webmanifest（或讓 vite-plugin-pwa 自動產生）
+      5. index.html 加 <link rel="manifest"> 與 theme-color meta
+      6. 確認更新提示 UI：右下角彈出「有新版本，重新整理」按鈕
+      7. 至少跑一次 build：確認 service worker 生成在 dist/sw.js
+      8. 一個簡單的 OfflineBanner 元件：偵測 navigator.onLine，
+         離線時頂部顯示「離線模式（資料存於本地）」
+      9. 測試：src/test/pwa.test.ts — 確認 vite.config 有 VitePWA plugin
+
+      驗證：
+      - `pnpm build` 成功且產生 dist/sw.js（或 dist/registerSW.js）
+      - `pnpm typecheck` 0 錯誤
+
+      完成時報告：
+      - 修改檔案
+      - SW 預期快取策略
+      - 圖示產生方式（避免 binary commit）
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\client\
+      1. vite.config.ts 包含 VitePWA plugin
+      2. manifest 設定正確（name / icons / theme_color）
+      3. 跑 `pnpm build` 成功且 dist/ 有 sw.js 或 registerSW.js
+      4. 跑 `pnpm typecheck` 0 錯誤
+      5. pwa.test.ts 存在且通過
+      6. OfflineBanner 元件存在
+      7. icon-192.png 和 icon-512.png 存在（任何格式都接受）
+      回報 PASS/FAIL
+    max_retries: 2
+
+  # === Final integration gate ===
+  - id: 'final-integration'
+    title: '最終整合驗證（build + deploy dry-run + 文件一致性）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：四個 track 全部完成後，做最終 E2E 驗證
+
+      必做：
+      1. 跑 `pnpm typecheck`（client + server）— 必須 0 錯誤
+      2. 跑 `pnpm test` — 必須全綠
+      3. 跑 `pnpm build`（client）— 必須成功
+      4. 跑 server `npx tsc` + `node dist/index.js` 啟動 — 確認能 listen
+         （用 port 3099 避免衝突，timeout 5 秒後 kill）
+      5. 用 curl 打以下端點確認 200 OK：
+         - GET /api/health
+         - GET /api/info
+         - GET /api/openapi.json
+      6. 檢查 README.md 存在且包含：
+         - 一句話描述產品
+         - 30 秒快速啟動（docker run 一行）
+         - 開發者 setup（pnpm install + dev）
+         - 環境需求（最低 2GB RAM VPS）
+         - 授權條款
+      7. 檢查 CHANGELOG.md 存在且至少有一個版本條目（v1.0.0）
+      8. 確認 docker-compose.yml 完整且每個 service 有健康檢查
+
+      完成時產出 INTEGRATION_REPORT.md，含：
+      - 所有驗證項目的 PASS/FAIL 結果
+      - 任何警告或注意事項
+      - 給用戶的下一步建議（例如：「要正式部署到 VPS，可以這樣做...」）
+
+      驗證：
+      - 所有驗證項目都 PASS（不接受 FAIL）
+      - 報告檔案存在且內容完整
+    role: verify-as-task
+    assigned_to: 'verifier'
+    depends_on: ['backend-routes-align', 'docker-deploy', 'i18n-multilang', 'pwa-offline']
+    max_retries: 1

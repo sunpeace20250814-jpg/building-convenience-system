@@ -1,0 +1,6 @@
+{
+  "last_cycle": [],
+  "next_cycle": [],
+  "plan_complete": false,
+  "message_to_user": "Cycle 1 結束。3 個 task 因為 15 分鐘超時被 kill（檔案其實都已產出）。PWA 沒跑到。下一個 cycle 重試：保留同樣 4 軌並發跑，給 backend/docker/i18n 加 10 分鐘 runtime 讓它們收尾，PWA 開始跑。"
+}

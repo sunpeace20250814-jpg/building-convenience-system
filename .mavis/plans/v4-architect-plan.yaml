@@ -1,0 +1,1514 @@
+version: 1
+plan:
+  name: '大樓住戶系統 V4 - 全新架構建構'
+  description: '以班表OS為藍本，重建完整前後端住戶管理系統'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 15
+  auto_reject_retries: 2
+
+tasks:
+  # ========================================
+  # Phase 1: 專案初始化
+  # ========================================
+  - id: task-1-scaffold
+    title: '建立 V4 專案架構藍圖'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\` 建立一個全新的專案結構。
+
+      ## 必須完成的交付物
+
+      ### 1. 專案目錄結構
+      參考 `C:\Users\sunpe\自主開發\班表OS\` 的架構模式，建立以下目錄：
+
+      ```
+      v4-resident-system/
+      ├── client/                      # 前端 (React)
+      │   ├── src/
+      │   │   ├── components/         # 通用 UI 組件
+      │   │   │   ├── ui/            # 基礎 UI 組件
+      │   │   │   └── layout/        # 佈局組件
+      │   │   ├── modules/            # 功能模組
+      │   │   │   ├── residents/      # 住戶管理
+      │   │   │   ├── expenses/       # 記帳系統
+      │   │   │   ├── schedule/       # 班表日曆
+      │   │   │   └── settings/       # 系統設定
+      │   │   ├── stores/            # Zustand 狀態管理
+      │   │   ├── db/                # Dexie.js 客戶端資料庫
+      │   │   ├── hooks/             # 自訂 Hooks
+      │   │   ├── lib/               # 工具函數
+      │   │   ├── types/             # TypeScript 類型定義
+      │   │   └── App.tsx
+      │   ├── index.html
+      │   └── package.json
+      ├── server/                      # 後端 (Node.js + Fastify)
+      │   ├── src/
+      │   │   ├── db/                # better-sqlite3 資料庫
+      │   │   ├── routes/            # API 路由
+      │   │   ├── services/          # 業務邏輯
+      │   │   └── index.ts           # 入口
+      │   └── package.json
+      ├── shared/                      # 共用類型
+      │   ├── src/
+      │   │   ├── types/
+      │   │   └── validation/
+      │   └── package.json
+      ├── package.json               # 根 workspace
+      ├── pnpm-workspace.yaml        # pnpm workspace 配置
+      └── README.md
+      ```
+
+      ### 2. 根 package.json
+      ```json
+      {
+        "name": "v4-resident-system",
+        "version": "1.0.0",
+        "private": true,
+        "scripts": {
+          "dev": "pnpm --parallel -r --filter='@v4-resident/*' run dev",
+          "build": "pnpm -r run build",
+          "start": "pnpm --parallel -r run start"
+        }
+      }
+      ```
+
+      ### 3. pnpm-workspace.yaml
+      ```yaml
+      packages:
+        - 'client'
+        - 'server'
+        - 'shared'
+      ```
+
+      ### 4. client/package.json
+      ```json
+      {
+        "name": "@v4-resident/client",
+        "version": "1.0.0",
+        "type": "module",
+        "scripts": {
+          "dev": "vite",
+          "build": "tsc && vite build",
+          "preview": "vite preview"
+        },
+        "dependencies": {
+          "react": "^18.2.0",
+          "react-dom": "^18.2.0",
+          "react-router-dom": "^6.22.0",
+          "zustand": "^4.5.0",
+          "dexie": "^4.0.0",
+          "@tanstack/react-table": "^8.0.0",
+          "recharts": "^2.12.0",
+          "zod": "^3.23.0",
+          "date-fns": "^3.3.0",
+          "clsx": "^2.1.0",
+          "tailwind-merge": "^2.2.0",
+          "lucide-react": "^0.344.0",
+          "sonner": "^1.4.0"
+        },
+        "devDependencies": {
+          "typescript": "^5.3.0",
+          "@types/react": "^18.2.0",
+          "@types/react-dom": "^18.2.0",
+          "@vitejs/plugin-react": "^4.2.0",
+          "vite": "^5.1.0",
+          "tailwindcss": "^3.4.0",
+          "postcss": "^8.4.0",
+          "autoprefixer": "^10.4.0",
+          "vitest": "^1.2.0"
+        }
+      }
+      ```
+
+      ### 5. server/package.json
+      ```json
+      {
+        "name": "@v4-resident/server",
+        "version": "1.0.0",
+        "type": "module",
+        "scripts": {
+          "dev": "tsx watch src/index.ts",
+          "build": "tsc",
+          "start": "node dist/index.js"
+        },
+        "dependencies": {
+          "fastify": "^4.26.0",
+          "@fastify/cors": "^9.0.0",
+          "@fastify/static": "^7.0.0",
+          "better-sqlite3": "^11.0.0",
+          "zod": "^3.23.0",
+          "archiver": "^7.0.0",
+          "uuid": "^9.0.0"
+        },
+        "devDependencies": {
+          "typescript": "^5.3.0",
+          "@types/better-sqlite3": "^7.6.0",
+          "@types/archiver": "^6.0.0",
+          "@types/uuid": "^9.0.0",
+          "tsx": "^4.7.0"
+        }
+      }
+      ```
+
+      ### 6. shared/package.json
+      ```json
+      {
+        "name": "@v4-resident/shared",
+        "version": "1.0.0",
+        "type": "module",
+        "main": "./dist/index.js",
+        "types": "./dist/index.d.ts",
+        "scripts": {
+          "build": "tsc"
+        },
+        "dependencies": {
+          "zod": "^3.23.0"
+        },
+        "devDependencies": {
+          "typescript": "^5.3.0"
+        }
+      }
+      ```
+
+      ### 7. TypeScript 設定
+
+      #### client/tsconfig.json
+      ```json
+      {
+        "compilerOptions": {
+          "target": "ES2020",
+          "useDefineForClassFields": true,
+          "lib": ["ES2020", "DOM", "DOM.Iterable"],
+          "module": "ESNext",
+          "skipLibCheck": true,
+          "moduleResolution": "bundler",
+          "allowImportingTsExtensions": true,
+          "resolveJsonModule": true,
+          "isolatedModules": true,
+          "noEmit": true,
+          "jsx": "react-jsx",
+          "strict": true,
+          "noUnusedLocals": true,
+          "noUnusedParameters": true,
+          "noFallthroughCasesInSwitch": true,
+          "baseUrl": ".",
+          "paths": {
+            "@/*": ["./src/*"],
+            "@shared/*": ["../shared/src/*"]
+          }
+        },
+        "include": ["src"],
+        "references": [{ "path": "./tsconfig.node.json" }]
+      }
+      ```
+
+      #### client/tsconfig.node.json
+      ```json
+      {
+        "compilerOptions": {
+          "composite": true,
+          "skipLibCheck": true,
+          "module": "ESNext",
+          "moduleResolution": "bundler",
+          "allowSyntheticDefaultImports": true
+        },
+        "include": ["vite.config.ts"]
+      }
+      ```
+
+      #### server/tsconfig.json
+      ```json
+      {
+        "compilerOptions": {
+          "target": "ES2022",
+          "module": "ESNext",
+          "moduleResolution": "bundler",
+          "outDir": "./dist",
+          "rootDir": "./src",
+          "strict": true,
+          "esModuleInterop": true,
+          "skipLibCheck": true,
+          "forceConsistentCasingInFileNames": true,
+          "resolveJsonModule": true,
+          "declaration": true,
+          "baseUrl": ".",
+          "paths": {
+            "@shared/*": ["../shared/src/*"]
+          }
+        },
+        "include": ["src/**/*"],
+        "exclude": ["node_modules", "dist"]
+      }
+      ```
+
+      #### shared/tsconfig.json
+      ```json
+      {
+        "compilerOptions": {
+          "target": "ES2022",
+          "module": "ESNext",
+          "moduleResolution": "bundler",
+          "declaration": true,
+          "outDir": "./dist",
+          "rootDir": "./src",
+          "strict": true,
+          "esModuleInterop": true,
+          "skipLibCheck": true
+        },
+        "include": ["src/**/*"],
+        "exclude": ["node_modules", "dist"]
+      }
+      ```
+
+      ### 8. Vite 設定 client/vite.config.ts
+      ```typescript
+      import { defineConfig } from 'vite';
+      import react from '@vitejs/plugin-react';
+      import path from 'path';
+
+      export default defineConfig({
+        plugins: [react()],
+        resolve: {
+          alias: {
+            '@': path.resolve(__dirname, './src'),
+            '@shared': path.resolve(__dirname, '../shared/src')
+          }
+        },
+        server: {
+          port: 3000,
+          host: true
+        }
+      });
+      ```
+
+      ### 9. TailwindCSS 設定
+
+      #### client/tailwind.config.js
+      ```javascript
+      /** @type {import('tailwindcss').Config} */
+      export default {
+        content: [
+          "./index.html",
+          "./src/**/*.{js,ts,jsx,tsx}",
+        ],
+        theme: {
+          extend: {},
+        },
+        plugins: [],
+      }
+      ```
+
+      #### client/postcss.config.js
+      ```javascript
+      export default {
+        plugins: {
+          tailwindcss: {},
+          autoprefixer: {},
+        },
+      }
+      ```
+
+      ### 10. client/src/styles/globals.css
+      ```css
+      @tailwind base;
+      @tailwind components;
+      @tailwind utilities;
+      ```
+
+      ### 11. client/index.html
+      ```html
+      <!DOCTYPE html>
+      <html lang="zh-TW">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>大樓住戶系統 V4</title>
+        </head>
+        <body>
+          <div id="root"></div>
+          <script type="module" src="/src/main.tsx"></script>
+        </body>
+      </html>
+      ```
+
+      ### 12. README.md
+      建立基本的 README，說明這是 V4 版本，基於班表OS架構重建。
+
+    assigned_to: general
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有目錄結構是否正確建立
+      2. 所有 package.json 是否完整且語法正確
+      3. tsconfig 設定是否正確
+      4. Vite 設定是否正確
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 2: 共享類型定義
+  # ========================================
+  - id: task-2-shared-types
+    title: '建立共享類型定義'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\shared\src\` 建立完整的 TypeScript 類型和 Zod 驗證。
+
+      ## 必須建立的檔案
+
+      ### shared/src/types/index.ts
+      建立完整的類型定義，涵蓋以下所有模組：
+
+      ```typescript
+      // 基礎類型
+      export type EntityId = string;
+      export type Timestamp = string;
+
+      // 住戶模組
+      export interface Resident {
+        id: EntityId;
+        buildingId: EntityId;
+        floor: string;
+        unitType: 'normal' | 'rental';
+        unitNumber?: string;
+        statusId: EntityId;
+        ownerName: string;
+        renterName?: string;
+        phone?: string;
+        email?: string;
+        moveInDate: Timestamp;
+        moveOutDate?: Timestamp;
+        deposit?: number;
+        monthlyRent?: number;
+        emergencyContact?: string;
+        emergencyPhone?: string;
+        note?: string;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface ResidentMember {
+        id: EntityId;
+        residentId: EntityId;
+        name: string;
+        phone?: string;
+        relationship?: string;
+        createdAt: Timestamp;
+      }
+
+      export interface ResidentKeycard {
+        id: EntityId;
+        residentId: EntityId;
+        cardNumber: string;
+        note?: string;
+        createdAt: Timestamp;
+      }
+
+      // 設定模組
+      export interface Building {
+        id: EntityId;
+        name: string;
+        normalFloorCount: number;
+        rooftopFloorCount: number;
+        basementFloorCount: number;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface ParkingSpot {
+        id: EntityId;
+        buildingId: EntityId;
+        floor: string;
+        number: string;
+        type: 'motorcycle' | 'car' | 'large';
+        statusId: EntityId;
+        boundResidentId?: EntityId;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface StatusOption {
+        id: EntityId;
+        type: 'resident' | 'parking';
+        label: string;
+        color: string;
+        sortOrder: number;
+      }
+
+      // 記帳模組
+      export interface ExpenseRecord {
+        id: EntityId;
+        type: 'income' | 'expense';
+        date: string;
+        amount: number;
+        categoryId: EntityId;
+        description?: string;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface ExpenseCategory {
+        id: EntityId;
+        name: string;
+        type: 'income' | 'expense';
+        color?: string;
+        sortOrder: number;
+      }
+
+      export interface AllowanceHolder {
+        id: EntityId;
+        name: string;
+        balance: number;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface AllowanceTransaction {
+        id: EntityId;
+        allowanceId: EntityId;
+        date: string;
+        amount: number;
+        type: 'add' | 'deduct';
+        description?: string;
+        balanceAfter: number;
+        createdAt: Timestamp;
+      }
+
+      // 班表模組
+      export interface Employee {
+        id: EntityId;
+        name: string;
+        phone?: string;
+        isActive: boolean;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface ShiftStatus {
+        id: EntityId;
+        name: string;
+        label: string;
+        color: string;
+        sortOrder: number;
+      }
+
+      export interface ScheduleEntry {
+        id: EntityId;
+        date: string;
+        shiftId: EntityId;
+        assigneeId: EntityId;
+        notes?: string;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface Holiday {
+        id: EntityId;
+        date: string;
+        name: string;
+      }
+
+      // 訊息模組
+      export interface HomeTab {
+        id: EntityId;
+        name: string;
+        order: number;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+
+      export interface HomeRecord {
+        id: EntityId;
+        tabId: EntityId;
+        title: string;
+        content: string;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }
+      ```
+
+      ### shared/src/validation/index.ts
+      為每個主要類型建立 Zod schema 驗證：
+
+      ```typescript
+      import { z } from 'zod';
+
+      export const residentSchema = z.object({
+        id: z.string(),
+        buildingId: z.string(),
+        floor: z.string(),
+        unitType: z.enum(['normal', 'rental']),
+        statusId: z.string(),
+        ownerName: z.string().min(1),
+        phone: z.string().optional(),
+        email: z.string().email().optional(),
+        // ... 其他欄位
+      });
+
+      export const createResidentSchema = residentSchema.omit({ id: true, createdAt: true, updatedAt: true });
+      export const updateResidentSchema = createResidentSchema.partial();
+      ```
+
+      ### shared/src/index.ts
+      統一匯出所有類型和驗證。
+
+    assigned_to: general
+    depends_on: [task-1-scaffold]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有類型定義是否完整
+      2. Zod schema 是否正確
+      3. 匯出是否正確
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 3: 後端資料庫
+  # ========================================
+  - id: task-3-backend-db
+    title: '建立後端 SQLite 資料庫'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\server\src\db\` 建立 better-sqlite3 資料庫層。
+
+      ## 必須建立的檔案
+
+      ### server/src/db/index.ts
+      建立完整的資料庫初始化腳本：
+
+      ```typescript
+      import Database from 'better-sqlite3';
+      import path from 'path';
+      import { fileURLToPath } from 'url';
+      import fs from 'fs';
+
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const DATA_DIR = path.join(__dirname, '../../data');
+      const DB_PATH = path.join(DATA_DIR, 'resident-system.db');
+
+      // 確保資料目錄存在
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+
+      const db = new Database(DB_PATH);
+      db.pragma('journal_mode = WAL');
+      db.pragma('foreign_keys = ON');
+
+      export function initDatabase() {
+        db.exec(`
+          -- 狀態選項
+          CREATE TABLE IF NOT EXISTS status_options (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            color TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0
+          );
+
+          -- 建築物
+          CREATE TABLE IF NOT EXISTS buildings (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            normal_floor_count INTEGER NOT NULL,
+            rooftop_floor_count INTEGER DEFAULT 0,
+            basement_floor_count INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 停車位
+          CREATE TABLE IF NOT EXISTS parking_spots (
+            id TEXT PRIMARY KEY,
+            building_id TEXT NOT NULL,
+            floor TEXT NOT NULL,
+            number TEXT NOT NULL,
+            type TEXT NOT NULL,
+            status_id TEXT NOT NULL,
+            bound_resident_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 住戶
+          CREATE TABLE IF NOT EXISTS residents (
+            id TEXT PRIMARY KEY,
+            building_id TEXT NOT NULL,
+            floor TEXT NOT NULL,
+            unit_type TEXT NOT NULL,
+            unit_number TEXT,
+            status_id TEXT NOT NULL,
+            owner_name TEXT NOT NULL,
+            renter_name TEXT,
+            phone TEXT,
+            email TEXT,
+            move_in_date TEXT NOT NULL,
+            move_out_date TEXT,
+            deposit REAL,
+            monthly_rent REAL,
+            emergency_contact TEXT,
+            emergency_phone TEXT,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 家庭成員
+          CREATE TABLE IF NOT EXISTS resident_members (
+            id TEXT PRIMARY KEY,
+            resident_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT,
+            relationship TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
+          );
+
+          -- 鑰匙卡
+          CREATE TABLE IF NOT EXISTS resident_keycards (
+            id TEXT PRIMARY KEY,
+            resident_id TEXT NOT NULL,
+            card_number TEXT NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
+          );
+
+          -- 收支類別
+          CREATE TABLE IF NOT EXISTS expense_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            color TEXT,
+            sort_order INTEGER DEFAULT 0
+          );
+
+          -- 支出記錄
+          CREATE TABLE IF NOT EXISTS expense_records (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            date TEXT NOT NULL,
+            amount REAL NOT NULL,
+            category_id TEXT NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 零用金持有人
+          CREATE TABLE IF NOT EXISTS allowance_holders (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            balance REAL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 零用金交易
+          CREATE TABLE IF NOT EXISTS allowance_transactions (
+            id TEXT PRIMARY KEY,
+            allowance_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            amount REAL NOT NULL,
+            type TEXT NOT NULL,
+            description TEXT,
+            balance_after REAL NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (allowance_id) REFERENCES allowance_holders(id) ON DELETE CASCADE
+          );
+
+          -- 員工
+          CREATE TABLE IF NOT EXISTS employees (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 班別
+          CREATE TABLE IF NOT EXISTS shift_statuses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            label TEXT NOT NULL,
+            color TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0
+          );
+
+          -- 班表記錄
+          CREATE TABLE IF NOT EXISTS schedule_entries (
+            id TEXT PRIMARY KEY,
+            date TEXT NOT NULL,
+            shift_id TEXT NOT NULL,
+            assignee_id TEXT NOT NULL,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 國定假日
+          CREATE TABLE IF NOT EXISTS holidays (
+            id TEXT PRIMARY KEY,
+            date TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL
+          );
+
+          -- 公告標籤
+          CREATE TABLE IF NOT EXISTS home_tabs (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            sort_order INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 公告記錄
+          CREATE TABLE IF NOT EXISTS home_records (
+            id TEXT PRIMARY KEY,
+            tab_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+
+          -- 創建索引
+          CREATE INDEX IF NOT EXISTS idx_residents_building ON residents(building_id);
+          CREATE INDEX IF NOT EXISTS idx_residents_floor ON residents(floor);
+          CREATE INDEX IF NOT EXISTS idx_members_resident ON resident_members(resident_id);
+          CREATE INDEX IF NOT EXISTS idx_keycards_resident ON resident_keycards(resident_id);
+          CREATE INDEX IF NOT EXISTS idx_expenses_date ON expense_records(date);
+          CREATE INDEX IF NOT EXISTS idx_schedules_date ON schedule_entries(date);
+        `);
+
+        // 插入預設狀態
+        const defaultStatuses = [
+          { id: 'status-normal', type: 'resident', label: '正常', color: '#22c55e', sort_order: 1 },
+          { id: 'status-rental', type: 'resident', label: '出租中', color: '#3b82f6', sort_order: 2 },
+          { id: 'status-vacant', type: 'resident', label: '空屋', color: '#f59e0b', sort_order: 3 },
+          { id: 'parking-empty', type: 'parking', label: '空位', color: '#22c55e', sort_order: 1 },
+          { id: 'parking-rented', type: 'parking', label: '已出租', color: '#3b82f6', sort_order: 2 },
+        ];
+
+        const insertStatus = db.prepare(`
+          INSERT OR IGNORE INTO status_options (id, type, label, color, sort_order)
+          VALUES (@id, @type, @label, @color, @sort_order)
+        `);
+
+        for (const status of defaultStatuses) {
+          insertStatus.run(status);
+        }
+
+        console.log('資料庫初始化完成');
+      }
+
+      export { db };
+      export default db;
+      ```
+
+      ### server/src/db/repository.ts
+      建立 Repository 模式，提供 CRUD 操作：
+
+      ```typescript
+      import { db } from './index.js';
+
+      function generateId(): string {
+        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      // 住戶 Repository
+      export const residentRepository = {
+        getAll: () => {
+          return db.prepare('SELECT * FROM residents ORDER BY floor, unit_number').all();
+        },
+        getById: (id: string) => {
+          return db.prepare('SELECT * FROM residents WHERE id = ?').get(id);
+        },
+        create: (data: any) => {
+          const id = generateId();
+          const now = new Date().toISOString();
+          db.prepare(`
+            INSERT INTO residents (id, building_id, floor, unit_type, unit_number, status_id,
+              owner_name, renter_name, phone, email, move_in_date, move_out_date,
+              deposit, monthly_rent, emergency_contact, emergency_phone, note, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(id, data.buildingId, data.floor, data.unitType, data.unitNumber,
+            data.statusId, data.ownerName, data.renterName, data.phone, data.email,
+            data.moveInDate, data.moveOutDate, data.deposit, data.monthlyRent,
+            data.emergencyContact, data.emergencyPhone, data.note, now, now);
+          return { id, ...data, createdAt: now, updatedAt: now };
+        },
+        update: (id: string, data: any) => {
+          const now = new Date().toISOString();
+          // ... update logic
+        },
+        delete: (id: string) => {
+          db.prepare('DELETE FROM residents WHERE id = ?').run(id);
+        },
+        search: (query: string) => {
+          const pattern = `%${query}%`;
+          return db.prepare(`
+            SELECT * FROM residents
+            WHERE owner_name LIKE ? OR renter_name LIKE ? OR phone LIKE ? OR floor LIKE ?
+          `).all(pattern, pattern, pattern, pattern);
+        }
+      };
+
+      // 成員 Repository
+      export const memberRepository = {
+        getByResidentId: (residentId: string) => {
+          return db.prepare('SELECT * FROM resident_members WHERE resident_id = ?').all(residentId);
+        },
+        create: (data: any) => {
+          const id = generateId();
+          const now = new Date().toISOString();
+          db.prepare(`
+            INSERT INTO resident_members (id, resident_id, name, phone, relationship, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(id, data.residentId, data.name, data.phone, data.relationship, now);
+          return { id, ...data, createdAt: now };
+        },
+        delete: (id: string) => {
+          db.prepare('DELETE FROM resident_members WHERE id = ?').run(id);
+        }
+      };
+
+      // ... 其他 Repository
+      ```
+
+    assigned_to: general
+    depends_on: [task-2-shared-types]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有資料庫表格是否正確建立
+      2. 外鍵約束是否正確
+      3. 索引是否正確建立
+      4. Repository 函數是否完整
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 4: 後端 API 路由
+  # ========================================
+  - id: task-4-api-routes
+    title: '建立後端 Fastify API'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\server\src\` 建立 Fastify API 路由。
+
+      ## 必須建立的檔案
+
+      ### server/src/index.ts
+      Fastify 主入口：
+
+      ```typescript
+      import Fastify from 'fastify';
+      import cors from '@fastify/cors';
+      import { initDatabase } from './db/index.js';
+      import residentsRoutes from './routes/residents.js';
+      import expensesRoutes from './routes/expenses.js';
+      import scheduleRoutes from './routes/schedule.js';
+      import settingsRoutes from './routes/settings.js';
+      import homeTabsRoutes from './routes/home-tabs.js';
+
+      const fastify = Fastify({ logger: true });
+
+      await fastify.register(cors, { origin: true });
+      initDatabase();
+
+      await fastify.register(residentsRoutes, { prefix: '/api/residents' });
+      await fastify.register(expensesRoutes, { prefix: '/api/expenses' });
+      await fastify.register(scheduleRoutes, { prefix: '/api/schedule' });
+      await fastify.register(settingsRoutes, { prefix: '/api/settings' });
+      await fastify.register(homeTabsRoutes, { prefix: '/api/home-tabs' });
+
+      fastify.get('/api/health', async () => ({ status: 'ok' }));
+
+      const start = async () => {
+        try {
+          await fastify.listen({ port: 3001, host: '0.0.0.0' });
+          console.log('Server running at http://localhost:3001');
+        } catch (err) {
+          fastify.log.error(err);
+          process.exit(1);
+        }
+      };
+
+      start();
+      ```
+
+      ### server/src/routes/residents.ts
+      ```typescript
+      import { FastifyInstance } from 'fastify';
+      import { residentRepository, memberRepository, keycardRepository } from '../db/repository.js';
+
+      export default async function residentsRoutes(fastify: FastifyInstance) {
+        fastify.get('/', async () => residentRepository.getAll());
+        fastify.get<{ Params: { id: string } }>('/:id', async (request) => {
+          const resident = residentRepository.getById(request.params.id);
+          if (!resident) throw { statusCode: 404, message: '找不到住戶' };
+          return resident;
+        });
+        fastify.post('/', async (request) => residentRepository.create(request.body as any));
+        fastify.put<{ Params: { id: string } }>('/:id', async (request) => {
+          return residentRepository.update(request.params.id, request.body as any);
+        });
+        fastify.delete<{ Params: { id: string } }>('/:id', async (request) => {
+          residentRepository.delete(request.params.id);
+          return { success: true };
+        });
+        fastify.get<{ Querystring: { q: string } }>('/search', async (request) => {
+          return residentRepository.search(request.query.q || '');
+        });
+
+        // 成員路由
+        fastify.get<{ Params: { id: string } }>('/:id/members', async (request) => {
+          return memberRepository.getByResidentId(request.params.id);
+        });
+        fastify.post<{ Params: { id: string } }>('/:id/members', async (request) => {
+          return memberRepository.create({ ...request.body as any, residentId: request.params.id });
+        });
+        fastify.delete<{ Params: { id: string }, Params2: { memberId: string } }>('/:id/members/:memberId', async (request) => {
+          memberRepository.delete(request.params.memberId);
+          return { success: true };
+        });
+
+        // 鑰匙卡路由
+        fastify.get<{ Params: { id: string } }>('/:id/keycards', async (request) => {
+          return keycardRepository.getByResidentId(request.params.id);
+        });
+        fastify.post<{ Params: { id: string } }>('/:id/keycards', async (request) => {
+          return keycardRepository.create({ ...request.body as any, residentId: request.params.id });
+        });
+      }
+      ```
+
+      ### server/src/routes/expenses.ts
+      記帳 API（收入/支出 CRUD）。
+
+      ### server/src/routes/schedule.ts
+      班表 API（員工/班別/日程 CRUD）。
+
+      ### server/src/routes/settings.ts
+      設定 API（建築/停車位/狀態 CRUD）。
+
+      ### server/src/routes/home-tabs.ts
+      訊息公告 API（標籤/記錄 CRUD）。
+
+    assigned_to: general
+    depends_on: [task-3-backend-db]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有 API 路由是否正確建立
+      2. HTTP 方法是否正確
+      3. 路徑是否一致
+      4. 錯誤處理是否完整
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 5: 前端資料庫與 Store
+  # ========================================
+  - id: task-5-client-store
+    title: '建立前端 Dexie.js 與 Zustand Store'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\client\src\` 建立客戶端資料庫和 Zustand Store。
+
+      ## 必須建立的檔案
+
+      ### client/src/db/index.ts
+      Dexie.js 客戶端資料庫：
+
+      ```typescript
+      import Dexie, { type EntityTable } from 'dexie';
+
+      class ResidentDatabase extends Dexie {
+        residents!: EntityTable<any, 'id'>;
+        members!: EntityTable<any, 'id'>;
+        keycards!: EntityTable<any, 'id'>;
+        buildings!: EntityTable<any, 'id'>;
+        parkingSpots!: EntityTable<any, 'id'>;
+        statusOptions!: EntityTable<any, 'id'>;
+        expenseRecords!: EntityTable<any, 'id'>;
+        expenseCategories!: EntityTable<any, 'id'>;
+        employees!: EntityTable<any, 'id'>;
+        shiftStatuses!: EntityTable<any, 'id'>;
+        scheduleEntries!: EntityTable<any, 'id'>;
+        holidays!: EntityTable<any, 'id'>;
+        homeTabs!: EntityTable<any, 'id'>;
+        homeRecords!: EntityTable<any, 'id'>;
+
+        constructor() {
+          super('ResidentSystemDB');
+          this.version(1).stores({
+            residents: 'id, buildingId, floor, statusId',
+            members: 'id, residentId',
+            keycards: 'id, residentId',
+            buildings: 'id',
+            parkingSpots: 'id, buildingId, statusId',
+            statusOptions: 'id, type',
+            expenseRecords: 'id, date, categoryId, type',
+            expenseCategories: 'id, type',
+            employees: 'id, isActive',
+            shiftStatuses: 'id',
+            scheduleEntries: 'id, date, assigneeId',
+            holidays: 'id, date',
+            homeTabs: 'id, order',
+            homeRecords: 'id, tabId'
+          });
+        }
+      }
+
+      export const clientDb = new ResidentDatabase();
+
+      export async function initClientDb() {
+        await clientDb.open();
+      }
+      ```
+
+      ### client/src/db/api.ts
+      API 客戶端：
+
+      ```typescript
+      const API_BASE = 'http://localhost:3001/api';
+
+      async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          headers: { 'Content-Type': 'application/json', ...options?.headers }
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        return response.json();
+      }
+
+      export const api = {
+        residents: {
+          getAll: () => fetchApi<any[]>('/residents'),
+          getById: (id: string) => fetchApi<any>(`/residents/${id}`),
+          create: (data: any) => fetchApi<any>('/residents', { method: 'POST', body: JSON.stringify(data) }),
+          update: (id: string, data: any) => fetchApi<any>(`/residents/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+          delete: (id: string) => fetchApi<any>(`/residents/${id}`, { method: 'DELETE' }),
+          search: (q: string) => fetchApi<any[]>(`/residents/search?q=${encodeURIComponent(q)}`)
+        },
+        expenses: {
+          getAll: () => fetchApi<any[]>('/expenses'),
+          create: (data: any) => fetchApi<any>('/expenses', { method: 'POST', body: JSON.stringify(data) }),
+          delete: (id: string) => fetchApi<any>(`/expenses/${id}`, { method: 'DELETE' })
+        },
+        schedule: {
+          getAll: () => fetchApi<any[]>('/schedule'),
+          create: (data: any) => fetchApi<any>('/schedule', { method: 'POST', body: JSON.stringify(data) }),
+          update: (id: string, data: any) => fetchApi<any>(`/schedule/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+          delete: (id: string) => fetchApi<any>(`/schedule/${id}`, { method: 'DELETE' })
+        },
+        settings: {
+          getStatuses: () => fetchApi<any[]>('/settings/statuses'),
+          getBuildings: () => fetchApi<any[]>('/settings/buildings'),
+          getParkingSpots: () => fetchApi<any[]>('/settings/parking-spots')
+        },
+        homeTabs: {
+          getAll: () => fetchApi<any[]>('/home-tabs'),
+          create: (data: any) => fetchApi<any>('/home-tabs', { method: 'POST', body: JSON.stringify(data) }),
+          delete: (id: string) => fetchApi<any>(`/home-tabs/${id}`, { method: 'DELETE' })
+        }
+      };
+      ```
+
+      ### client/src/stores/residentStore.ts
+      Zustand Store：
+
+      ```typescript
+      import { create } from 'zustand';
+      import { clientDb, api } from '../db';
+
+      interface ResidentState {
+        residents: any[];
+        selectedResident: any | null;
+        isLoading: boolean;
+        error: string | null;
+        loadResidents: () => Promise<void>;
+        selectResident: (id: string | null) => Promise<void>;
+        createResident: (data: any) => Promise<any>;
+        updateResident: (id: string, data: any) => Promise<void>;
+        deleteResident: (id: string) => Promise<void>;
+      }
+
+      export const useResidentStore = create<ResidentState>((set, get) => ({
+        residents: [],
+        selectedResident: null,
+        isLoading: false,
+        error: null,
+
+        loadResidents: async () => {
+          set({ isLoading: true, error: null });
+          try {
+            const serverResidents = await api.residents.getAll();
+            await clientDb.residents.clear();
+            await clientDb.residents.bulkPut(serverResidents);
+            set({ residents: serverResidents });
+          } catch (error) {
+            // 回退到本地資料
+            const localResidents = await clientDb.residents.toArray();
+            set({ residents: localResidents, error: (error as Error).message });
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        selectResident: async (id) => {
+          if (!id) { set({ selectedResident: null }); return; }
+          const resident = await clientDb.residents.get(id);
+          set({ selectedResident: resident });
+        },
+
+        createResident: async (data) => {
+          const newResident = await api.residents.create(data);
+          await clientDb.residents.add(newResident);
+          set((state) => ({ residents: [...state.residents, newResident] }));
+          return newResident;
+        },
+
+        updateResident: async (id, data) => {
+          await api.residents.update(id, data);
+          await clientDb.residents.update(id, { ...data, updatedAt: new Date().toISOString() });
+          await get().loadResidents();
+        },
+
+        deleteResident: async (id) => {
+          await api.residents.delete(id);
+          await clientDb.residents.delete(id);
+          set((state) => ({
+            residents: state.residents.filter(r => r.id !== id),
+            selectedResident: state.selectedResident?.id === id ? null : state.selectedResident
+          }));
+        }
+      }));
+      ```
+
+      ### client/src/stores/expenseStore.ts
+      ### client/src/stores/scheduleStore.ts
+      ### client/src/stores/settingsStore.ts
+      ### client/src/stores/homeTabsStore.ts
+
+    assigned_to: general
+    depends_on: [task-4-api-routes]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. Dexie.js schema 是否正確
+      2. API 客戶端是否正確封裝
+      3. Store 是否正確使用 Zustand
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 6: UI 組件
+  # ========================================
+  - id: task-6-ui-components
+    title: '建立前端 UI 組件庫'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\client\src\components\` 建立基礎 UI 組件。
+
+      ## 必須建立的組件
+
+      ### client/src/components/ui/Button.tsx
+      ```typescript
+      import { ButtonHTMLAttributes, forwardRef } from 'react';
+      import { clsx } from 'clsx';
+      import { twMerge } from 'tailwind-merge';
+
+      interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+        variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+        size?: 'sm' | 'md' | 'lg';
+      }
+
+      export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+        ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
+          return (
+            <button
+              ref={ref}
+              className={twMerge(clsx(
+                'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-offset-2',
+                'disabled:opacity-50 disabled:pointer-events-none',
+                {
+                  'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500': variant === 'primary',
+                  'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500': variant === 'secondary',
+                  'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500': variant === 'danger',
+                  'bg-transparent hover:bg-gray-100': variant === 'ghost'
+                },
+                { 'px-2.5 py-1.5 text-xs': size === 'sm', 'px-4 py-2 text-sm': size === 'md', 'px-6 py-3': size === 'lg' },
+                className
+              ))}
+              {...props}
+            />
+          );
+        }
+      );
+      Button.displayName = 'Button';
+      ```
+
+      ### client/src/components/ui/Input.tsx
+      ### client/src/components/ui/Select.tsx
+      ### client/src/components/ui/Modal.tsx
+      ### client/src/components/ui/Card.tsx
+      ### client/src/components/ui/Badge.tsx
+      ### client/src/components/ui/Table.tsx
+      ### client/src/components/ui/Spinner.tsx
+      ### client/src/components/ui/Toast.tsx
+
+      ### client/src/components/ui/index.ts
+      統一匯出所有組件。
+
+      ### client/src/components/layout/Sidebar.tsx
+      側邊導航欄，包含連結到所有模組。
+
+      ### client/src/components/layout/PageHeader.tsx
+      頁面標題元件。
+
+    assigned_to: general
+    depends_on: [task-5-client-store]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有 UI 組件是否正確建立
+      2. 是否使用 TailwindCSS 樣式
+      3. 是否使用 lucide-react 圖標
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 7: 功能模組頁面
+  # ========================================
+  - id: task-7-resident-page
+    title: '建立住戶管理頁面'
+    prompt: |
+      ## 任務目標
+      在 `C:\Users\sunpe\dev\v4-resident-system\client\src\modules\residents\` 建立完整的住戶管理頁面。
+
+      ## 必須建立的檔案
+
+      ### client/src/modules/residents/index.tsx
+      主頁面，包含：
+      - 搜尋列
+      - 數據表格（使用 @tanstack/react-table）
+      - 新增/編輯 Modal
+      - 詳情側邊欄
+
+      ```typescript
+      import { useEffect, useState } from 'react';
+      import { useResidentStore } from '@/stores';
+      import { PageHeader } from '@/components/layout/PageHeader';
+      import { Button } from '@/components/ui/Button';
+      import { Input } from '@/components/ui/Input';
+      import { Card } from '@/components/ui/Card';
+      import { ResidentModal } from './ResidentModal';
+      import { ResidentDetail } from './ResidentDetail';
+      import { Search, Plus } from 'lucide-react';
+
+      export function ResidentsModule() {
+        const { residents, loadResidents, isLoading } = useResidentStore();
+        const [searchQuery, setSearchQuery] = useState('');
+        const [selectedResident, setSelectedResident] = useState<any | null>(null);
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const [editingResident, setEditingResident] = useState<any | null>(null);
+
+        useEffect(() => { loadResidents(); }, []);
+
+        const filteredResidents = residents.filter(r =>
+          r.ownerName.includes(searchQuery) ||
+          r.renterName?.includes(searchQuery) ||
+          r.phone?.includes(searchQuery)
+        );
+
+        return (
+          <div className="p-6">
+            <PageHeader
+              title="住戶管理"
+              description="管理大樓住戶資料、家庭成員、鑰匙卡等"
+              actions={
+                <Button onClick={() => { setEditingResident(null); setIsModalOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />新增住戶
+                </Button>
+              }
+            />
+
+            <Card className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="搜尋住戶..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </Card>
+
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-4 py-2 text-left">樓層</th>
+                      <th className="px-4 py-2 text-left">戶主</th>
+                      <th className="px-4 py-2 text-left">租客</th>
+                      <th className="px-4 py-2 text-left">電話</th>
+                      <th className="px-4 py-2 text-left">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredResidents.map((resident) => (
+                      <tr key={resident.id} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-2">{resident.floor}</td>
+                        <td className="px-4 py-2">{resident.ownerName}</td>
+                        <td className="px-4 py-2">{resident.renterName || '-'}</td>
+                        <td className="px-4 py-2">{resident.phone || '-'}</td>
+                        <td className="px-4 py-2">
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedResident(resident)}>詳情</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingResident(resident); setIsModalOpen(true); }}>編輯</Button>
+                          <Button size="sm" variant="danger" onClick={() => useResidentStore.getState().deleteResident(resident.id)}>刪除</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {isModalOpen && <ResidentModal resident={editingResident} onClose={() => setIsModalOpen(false)} />}
+            {selectedResident && <ResidentDetail resident={selectedResident} onClose={() => setSelectedResident(null)} />}
+          </div>
+        );
+      }
+      ```
+
+      ### client/src/modules/residents/ResidentModal.tsx
+      新增/編輯 Modal 表單。
+
+      ### client/src/modules/residents/ResidentDetail.tsx
+      詳情側邊欄，顯示住戶完整資訊、家庭成員、鑰匙卡等。
+
+    assigned_to: general
+    depends_on: [task-6-ui-components]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 頁面是否完整包含所有 CRUD 功能
+      2. 搜尋過濾是否正常
+      3. Modal 是否正確工作
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 8: 其他功能模組
+  # ========================================
+  - id: task-8-other-modules
+    title: '建立其他功能模組'
+    prompt: |
+      ## 任務目標
+      建立其餘的功能模組頁面。
+
+      ## 必須建立的模組
+
+      ### client/src/modules/expenses/index.tsx
+      記帳系統頁面：
+      - 收支列表
+      - 新增/編輯收支
+      - 篩選功能（月份、類別）
+      - 統計卡片（總收入、總支出、結餘）
+
+      ### client/src/modules/schedule/index.tsx
+      班表日曆頁面：
+      - 月檢視表格
+      - 員工管理
+      - 班別設定
+
+      ### client/src/modules/home-tabs/index.tsx
+      訊息公告頁面：
+      - 標籤管理
+      - 訊息列表
+      - 新增/編輯訊息
+
+      ### client/src/modules/settings/index.tsx
+      系統設定頁面：
+      - 建築管理
+      - 停車位管理
+      - 狀態設定
+
+    assigned_to: general
+    depends_on: [task-7-resident-page]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 所有模組是否完整建立
+      2. 功能是否正常
+    timeout_ms: 1800000
+
+  # ========================================
+  # Phase 9: 應用入口
+  # ========================================
+  - id: task-9-app-entry
+    title: '建立應用入口與路由'
+    prompt: |
+      ## 任務目標
+      建立完整的應用入口和路由。
+
+      ## 必須建立的檔案
+
+      ### client/src/App.tsx
+      ```typescript
+      import { BrowserRouter, Routes, Route } from 'react-router-dom';
+      import { useEffect } from 'react';
+      import { Sidebar } from '@/components/layout/Sidebar';
+      import { ResidentsModule } from '@/modules/residents';
+      import { ExpensesModule } from '@/modules/expenses';
+      import { ScheduleModule } from '@/modules/schedule';
+      import { HomeTabsModule } from '@/modules/home-tabs';
+      import { SettingsModule } from '@/modules/settings';
+      import { initClientDb } from '@/db';
+
+      export default function App() {
+        useEffect(() => { initClientDb(); }, []);
+
+        return (
+          <BrowserRouter>
+            <div className="flex h-screen bg-gray-100">
+              <Sidebar />
+              <main className="flex-1 overflow-auto">
+                <Routes>
+                  <Route path="/" element={<HomeTabsModule />} />
+                  <Route path="/residents" element={<ResidentsModule />} />
+                  <Route path="/expenses" element={<ExpensesModule />} />
+                  <Route path="/schedule" element={<ScheduleModule />} />
+                  <Route path="/settings" element={<SettingsModule />} />
+                </Routes>
+              </main>
+            </div>
+          </BrowserRouter>
+        );
+      }
+      ```
+
+      ### client/src/main.tsx
+      ```typescript
+      import React from 'react';
+      import ReactDOM from 'react-dom/client';
+      import App from './App';
+      import './styles/globals.css';
+
+      ReactDOM.createRoot(document.getElementById('root')!).render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+      ```
+
+    assigned_to: general
+    depends_on: [task-8-other-modules]
+    verified_by: code-reviewer
+    verify_prompt: |
+      驗證以下項目：
+      1. 路由是否正確設定
+      2. 入口點是否正確
+    timeout_ms: 1200000

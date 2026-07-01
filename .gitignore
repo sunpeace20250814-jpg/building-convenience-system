@@ -1,0 +1,168 @@
+# ==========================================
+# Node / pnpm
+# ==========================================
+node_modules/
+.pnpm-store/
+
+# ==========================================
+# Build output
+# ==========================================
+dist/
+build/
+*.tsbuildinfo
+.next/
+.cache/
+.turbo/
+
+# ==========================================
+# 環境與 secrets（**絕對不能 push**）
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ==========================================
+# SQLite 資料庫（**個資不能公開**）
+# ==========================================
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# 例外：seed / demo 用的脫敏 DB（如有）
+# !*.db.seed
+
+# ==========================================
+# 測試暫存（會在 beforeEach 清掉重來）
+# ==========================================
+tests/.tmp-data/
+tests/.tmp-data-*/
+.tmp-data/
+.tmp-data-*/
+
+# 測試 path-traversal 防護時留下的 fixture artifact
+# (phase2-fixes.test.ts 的 resolveUploadPath 測試會把檔寫到 server/tests/etc/passwd/)
+server/tests/etc/
+
+# ==========================================
+# 上傳檔案 / 備份
+# ==========================================
+uploads/
+backups/
+data/backups/
+
+# ==========================================
+# Logs（運行產物，不進版控）
+# ==========================================
+*.log
+*.log.*
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ==========================================
+# OS 暫存
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# Editor / IDE
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# ==========================================
+# 打包 / 釋出
+# ==========================================
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# ==========================================
+# Mavis 私有 session 資料（不公開）
+# ==========================================
+.mavis/sessions/
+.mavis/runs/
+.mavis/cache/
+
+# 例外：保留 plans（跨 session 重要）
+!.mavis/plans/
+!.mavis/agents/
+
+# ==========================================
+# V4 專案特有
+# ==========================================
+# production DB 路徑（已用 *.db 排除但明確列出來避免誤會）
+server/data/
+
+# 測試環境產生檔（v4-test-env 內）
+client-final.log
+server-final.log
+server-final.err
+client-test*.log
+server-stderr.log
+server-stdout.log
+server.err.log
+server.out.log
+tmp-server.log
+test-real-asserts.log
+
+# CLI 工具暫存
+cli/dist/
+
+# 之前打包的 ZIP
+V4-resident-system-*.zip
+
+# ==========================================
+# Python（v4-test-env 內）
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==========================================
+# TypeScript
+# ==========================================
+*.tsbuildinfo
+.tslintcache
+
+# ==========================================
+# Coverage / Test output
+# ==========================================
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.lighthouseci/
+
+# ==========================================
+# Misc
+# ==========================================
+.history/
+.cache-loader/
+.tmp/
+tmp/

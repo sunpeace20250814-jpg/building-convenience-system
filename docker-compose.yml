@@ -1,0 +1,97 @@
+# V4 Resident System — Docker Compose
+#
+# 一鍵部署：
+#   docker compose up -d --build
+#
+# 服務：
+#   - api   : Fastify + SQLite（資料持久化到 named volume `v4-data`）
+#   - web   : nginx serving React SPA，反代 /api/* → api:3001
+#
+# 預設對外：
+#   - http://<host>:8080   → 前端
+#   - api 容器僅在內部網路 3001（不直接對外）
+#
+# 修改預設 port：直接改下方 ports 即可，例如 "80:8080" 把 VPS 80 對到容器 8080
+
+name: v4-resident
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: v4-resident/server:local
+    container_name: v4-api
+    restart: unless-stopped
+    # 容器對外不暴露——只讓 web 服務透過內部網路存取
+    expose:
+      - "3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      LOG_LEVEL: info
+      # ALLOWED_ORIGINS: "http://your-domain.com"   # 部署到正式網域時打開
+      DATA_DIR: /data
+    volumes:
+      - v4-data:/data
+    # 健康檢查（給 docker 內部觀察用）
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # 資源限制（1-2 GB RAM VPS 友善）
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    # 內部網路
+    networks:
+      - v4-net
+
+  web:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    image: v4-resident/client:local
+    container_name: v4-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # 預設對外 8080 → 容器 80
+      # 想用 80 直連 VPS 對外，改成 "80:80"
+      - "${WEB_PORT:-8080}:80"
+    # 健康檢查
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 32M
+    networks:
+      - v4-net
+
+volumes:
+  v4-data:
+    name: v4-data
+    # SQLite 資料庫 + WAL 檔案，跨容器重啟保留
+    # 想備份就 docker compose down 後備份這個 volume 的內容
+    #   docker run --rm -v v4-data:/data -v $(pwd):/backup alpine \
+    #     tar czf /backup/v4-data-$(date +%F).tgz /data
+
+networks:
+  v4-net:
+    name: v4-net
+    driver: bridge

@@ -1,0 +1,61 @@
+{
+  "measured": {
+    "ok": true,
+    "btnWidth": 345,
+    "btnHeight": 172,
+    "btnRight": 357,
+    "viewportWidth": 1280,
+    "statusTextLen": 325,
+    "classList": "flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors",
+    "hasMaxWidthClass": false,
+    "statusSpanClass": "flex items-center gap-1 text-xs text-gray-500",
+    "debug": [
+      {
+        "i": 2,
+        "spanCount": 0,
+        "hasSvg": true,
+        "text": "",
+        "cls": "p-1 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+      },
+      {
+        "i": 3,
+        "spanCount": 0,
+        "hasSvg": true,
+        "text": "",
+        "cls": "relative p-2 hover:bg-gray-100 rounded-lg"
+      },
+      {
+        "i": 4,
+        "spanCount": 2,
+        "hasSvg": true,
+        "text": "v4-test-folder\n已儲存 下午7:23:30",
+        "cls": "flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 roun"
+      },
+      {
+        "i": 5,
+        "spanCount": 3,
+        "hasSvg": true,
+        "text": "語言\n繁體中文",
+        "cls": "w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded"
+      },
+      {
+        "i": 6,
+        "spanCount": 0,
+        "hasSvg": true,
+        "text": "新增標籤",
+        "cls": "inline-flex items-center justify-center rounded-lg font-medium transition-colors"
+      },
+      {
+        "i": 7,
+        "spanCount": 0,
+        "hasSvg": true,
+        "text": "新增訊息",
+        "cls": "inline-flex items-center justify-center rounded-lg font-medium transition-colors"
+      }
+    ]
+  },
+  "overflows": true,
+  "longText": true,
+  "sidebarWidth": 240,
+  "beforeScreenshot": "C:\\Users\\sunpe\\dev\\v4-resident-system\\client\\tests\\e2e\\dbstatus-before.png"
+}

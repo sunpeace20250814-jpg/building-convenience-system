@@ -1,0 +1,20 @@
+# Client-specific .dockerignore (mostly redundant with root .dockerignore,
+# kept as a safety net when building client/ directly)
+
+node_modules
+dist
+build
+coverage
+test-results
+playwright-report
+.preview*.log
+*.log
+.env
+.env.*
+.git
+.github
+.vscode
+.idea
+.DS_Store
+Dockerfile
+.dockerignore

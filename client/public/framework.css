@@ -1,0 +1,284 @@
+/* ========================================
+   MAIL LABEL SYSTEM - Cyber UI Framework
+   左側設定面板（深色科技風）
+   列印區樣式在 style.css，互不影響
+   ======================================== */
+
+/* ===== CSS 變數 ===== */
+:root {
+  --cyber-bg: #0a0e17;
+  --cyber-card: #0f1923;
+  --cyber-card-hover: #152030;
+  --cyber-border: #1a2a3a;
+  --cyber-cyan: #00d4ff;
+  --cyber-cyan-dim: rgba(0, 212, 255, 0.12);
+  --cyber-cyan-border: rgba(0, 212, 255, 0.35);
+  --cyber-text: #e0e0e0;
+  --cyber-muted: #555;
+  --cyber-bg2: #0d1117;
+}
+
+/* ===== 全域繼承 ===== */
+.panel-left,
+.panel-left * {
+  box-sizing: border-box;
+}
+
+/* ===== APP 框架 ===== */
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ===== 左側面板 ===== */
+.panel-left {
+  width: 380px;
+  min-width: 380px;
+  background: var(--cyber-bg);
+  border-right: 1px solid var(--cyber-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 面板頂部標題 */
+.panel-header {
+  padding: 0 20px;
+  height: 52px;
+  background: var(--cyber-bg2);
+  border-bottom: 1px solid var(--cyber-border);
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cyber-cyan);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* 面板內容區 */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* 面板滾動條 */
+.panel-content::-webkit-scrollbar { width: 5px; }
+.panel-content::-webkit-scrollbar-track { background: transparent; }
+.panel-content::-webkit-scrollbar-thumb { background: var(--cyber-border); border-radius: 3px; }
+.panel-content::-webkit-scrollbar-thumb:hover { background: #2a3a4a; }
+
+/* ===== 設定區塊 ===== */
+.section-block {
+  background: var(--cyber-card);
+  border: 1px solid var(--cyber-border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.section-block:hover {
+  border-color: var(--cyber-cyan-border);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cyber-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cyber-border);
+}
+
+/* ===== 表單 ===== */
+.form-row {
+  margin-bottom: 10px;
+}
+
+.form-row label {
+  display: block;
+  font-size: 12px;
+  color: var(--cyber-muted);
+  margin-bottom: 5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--cyber-bg2);
+  border: 1px solid var(--cyber-border);
+  color: var(--cyber-text);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-row input:focus,
+.form-row textarea:focus {
+  outline: none;
+  border-color: var(--cyber-cyan);
+  box-shadow: 0 0 0 2px var(--cyber-cyan-dim);
+}
+
+.form-row textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.form-row input[type="number"] {
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.form-row input[type="number"]::-webkit-inner-spin-button,
+.form-row input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+/* 批量輸入說明 */
+.batch-hint {
+  font-size: 11px;
+  color: var(--cyber-muted);
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+/* ===== 每頁張數 ===== */
+#labelsPerPage {
+  background: var(--cyber-bg2) !important;
+  color: var(--cyber-text) !important;
+  border: 1px solid var(--cyber-border) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 13px !important;
+  width: 70px !important;
+  text-align: center !important;
+  transition: border-color 0.2s !important;
+}
+#labelsPerPage:focus {
+  outline: none;
+  border-color: var(--cyber-cyan) !important;
+  box-shadow: 0 0 0 2px var(--cyber-cyan-dim) !important;
+}
+
+#labelSizeInfo {
+  font-size: 11px;
+  color: var(--cyber-muted);
+  margin-top: 6px;
+}
+
+/* ===== 字體大小滑軌 ===== */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--cyber-border);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--cyber-cyan);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--cyber-cyan-dim);
+}
+
+.slider-row span {
+  min-width: 38px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cyber-cyan);
+  text-align: right;
+}
+
+/* ===== 列印按鈕 ===== */
+.print-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--cyber-cyan);
+  color: #000;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-top: 8px;
+  letter-spacing: 0.05em;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.print-btn:hover {
+  opacity: 0.88;
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.35);
+}
+
+/* ===== 右側面板 ===== */
+.panel-right {
+  flex: 1;
+  background: #111820;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.panel-right::-webkit-scrollbar { width: 6px; }
+.panel-right::-webkit-scrollbar-track { background: transparent; }
+.panel-right::-webkit-scrollbar-thumb { background: var(--cyber-border); border-radius: 3px; }
+
+/* 預覽區標題列 */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cyber-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.preview-info {
+  font-size: 12px;
+  color: var(--cyber-muted);
+}
+
+/* ===== print: 只隱藏左側，右側保留 ===== */
+@media print {
+  .panel-left {
+    display: none !important;
+  }
+  .panel-right {
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .preview-header {
+    display: none !important;
+  }
+  .app {
+    display: block !important;
+    height: auto !important;
+  }
+}

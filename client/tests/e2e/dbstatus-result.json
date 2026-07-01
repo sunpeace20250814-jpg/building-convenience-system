@@ -1,0 +1,42 @@
+{
+  "before": {
+    "measured": {
+      "ok": true,
+      "btnWidth": 345,
+      "btnHeight": 172,
+      "btnRight": 357,
+      "viewportWidth": 1280,
+      "statusTextLen": 325,
+      "classList": "flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors",
+      "hasTruncate": false
+    },
+    "screenshot": "C:\\Users\\sunpe\\dev\\v4-resident-system\\client\\tests\\e2e\\dbstatus-before.png",
+    "overflows": true
+  },
+  "after": {
+    "measured": {
+      "ok": true,
+      "btnWidth": 232,
+      "btnHeight": 32,
+      "btnRight": 244,
+      "viewportWidth": 1280,
+      "statusTextLen": 325,
+      "classList": "flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors",
+      "hasTruncate": false
+    },
+    "screenshot": "C:\\Users\\sunpe\\dev\\v4-resident-system\\client\\tests\\e2e\\dbstatus-after.png",
+    "overflows": false
+  },
+  "fixEffective": true,
+  "sidebarWidth": 240,
+  "longError": "FileSystemFileHandle.createWritable() failed at OPFS path /v4-test-folder/v4-resident.db: NotFoundError: The requested file could not be found in the OPFS sandbox storage, possibly because it was deleted externally or the OPFS origin storage quota was exceeded. (code=8, domain=QuotaExceededError, stack trace truncated)",
+  "cssChanges": {
+    "button": "w-full overflow-hidden",
+    "folderIcon": "flex-shrink-0",
+    "displayNameSpan": "truncate min-w-0",
+    "statusWrapSpan": "truncate min-w-0 flex-1",
+    "chevronIcon": "flex-shrink-0",
+    "errDropdownSection": "max-h-32 overflow-y-auto",
+    "errDropdownText": "break-words"
+  }
+}

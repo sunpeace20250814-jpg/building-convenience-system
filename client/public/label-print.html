@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>郵件標籤產生器</title>
+<link rel="stylesheet" href="framework.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="typography.css">
+</head>
+<body>
+
+<div class="app">
+  <!-- 左側：設定面板 -->
+  <div class="panel-left">
+    <div class="panel-header">郵件標籤設定</div>
+    <div class="panel-content">
+
+      <!-- 寄件人設定 -->
+      <div class="section-block">
+        <div class="section-title">寄件人</div>
+        <div class="form-row">
+          <label>郵遞區號</label>
+          <input type="text" id="senderZip" value="814">
+        </div>
+        <div class="form-row">
+          <label>地址</label>
+          <input type="text" id="senderAddress" value="高雄市仁武區霞海路101號1樓">
+        </div>
+        <div class="form-row">
+          <label>姓名/公司名稱</label>
+          <input type="text" id="senderName" value="行樂日和大樓管理委員會">
+        </div>
+        <div class="form-row">
+          <label>電話</label>
+          <input type="text" id="senderPhone" value="073103123">
+        </div>
+      </div>
+
+      <!-- 收件人設定 -->
+      <div class="section-block">
+        <div class="section-title">收件人（批量輸入）</div>
+        <div class="form-row">
+          <label>收件人列表</label>
+          <textarea id="recipientBatch" placeholder="格式：單位,姓名,電話,地址,郵遞區號
+範例：
+A1-3F,林冠婷,0920-522-735,高雄市左營區博愛四路309號二十六樓之1,813
+A1-4F,興連城,07-3456789,高雄市左營區博愛四路310號,813"></textarea>
+          <div class="batch-hint">
+            每行一筆，格式：單位,姓名,電話,地址,郵遞區號<br>
+            請用逗點分隔
+          </div>
+        </div>
+        <div class="form-row">
+          <label>預設備註</label>
+          <input type="text" id="defaultNote" placeholder="所有標籤的預設備註，可留空">
+        </div>
+      </div>
+
+      <!-- 每頁張數（自由設定） -->
+      <div class="section-block">
+        <div class="section-title">每頁張數</div>
+        <div class="form-row" style="align-items: center;">
+          <input type="number" id="labelsPerPage" min="2" max="20" step="2" value="10" style="width:80px; text-align:center;">
+          <span style="margin-left:8px; font-size:11pt; color:#555;">張（偶數，2~20）</span>
+        </div>
+        <div id="labelSizeInfo" style="font-size:10pt; color:#888; margin-top:4px;"></div>
+      </div>
+
+      <!-- 字體大小 -->
+      <div class="section-block">
+        <div class="section-title">字體大小</div>
+        <div class="slider-row">
+          <input type="range" id="fontSizeSlider" min="9" max="14" value="11" step="0.5">
+          <span id="fontSizeValue">11pt</span>
+        </div>
+      </div>
+
+      <!-- 列印按鈕 -->
+      <button class="print-btn" onclick="window.print()">列印標籤</button>
+
+    </div>
+  </div>
+
+  <!-- 右側：預覽 -->
+  <div class="panel-right">
+    <div class="preview-header">
+      <div class="preview-title">預覽</div>
+      <div class="preview-info" id="previewInfo">共 0 張標籤</div>
+    </div>
+    <div id="previewPage"></div>
+  </div>
+</div>
+
+<!-- 模組載入順序：data → renderer → app -->
+<script src="data.js"></script>
+<script src="renderer.js"></script>
+<script>
+/**
+ * =========================================
+ * MAIL LABEL SYSTEM v3.3 + V4 整合版
+ * 主程式 — 膠水層
+ * =========================================
+ */
+
+'use strict';
+
+// ===== A4 尺寸常數 =====
+const PAGE_H   = 297;  // mm，A4 高度
+const PAD_V    = 6;    // 上下各 3mm
+const GAP      = 2.5;  // 欄間距
+
+// ===== 計算每張標籤高度 =====
+function calcLabelHeight(labelsPerPage) {
+  const rows     = labelsPerPage / 2;                // 列數
+  const usableH  = PAGE_H - PAD_V - GAP * (rows - 1); // 可用高度
+  return (usableH / rows).toFixed(2);
+}
+
+// ===== 狀態管理 =====
+const state = {
+  sender: {
+    zip: document.getElementById('senderZip').value,
+    address: document.getElementById('senderAddress').value,
+    name: document.getElementById('senderName').value,
+    phone: document.getElementById('senderPhone').value
+  },
+  recipients: [],
+  defaultNote: '',
+  labelsPerPage: 10,
+  fontSize: 11
+};
+
+// ===== DOM 捷徑 =====
+const $ = id => document.getElementById(id);
+
+// ===== 解析批量收件人文字 → 物件陣列 =====
+function parseRecipients(text) {
+  return text.trim().split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      return {
+        unit:    parts[0] || '',
+        name:    parts[1] || '',
+        phone:   parts[2] || '',
+        address: parts[3] || '',
+        zip:     parts[4] || ''
+      };
+    })
+    .filter(r => r.name || r.address);
+}
+
+// ===== 根據 index 取得收件人（空位補寄件人）=====
+function getRecipientAt(index) {
+  return index < state.recipients.length ? state.recipients[index] : null;
+}
+
+// ===== 為所有收件人產生 labels 資料 ======
+function generateAllLabels() {
+  return state.recipients.map(r => ({
+    sender: {
+      zip:     state.sender.zip,
+      address: state.sender.address,
+      name:    state.sender.name,
+      phone:   state.sender.phone
+    },
+    recipient: { unit: r.unit, name: r.name, phone: r.phone, address: r.address, zip: r.zip },
+    note: state.defaultNote
+  }));
+}
+
+// ===== 渲染所有頁面（CSS Columns 垂直流動）=====
+function render() {
+  const container = $('previewPage');
+  container.innerHTML = '';
+
+  const allLabels = generateAllLabels();
+  const labelH = parseFloat(calcLabelHeight(state.labelsPerPage));
+  const labelsPerPage = state.labelsPerPage;
+
+  // 計算總頁數
+  const totalPages = Math.max(1, Math.ceil(allLabels.length / labelsPerPage));
+  $('previewInfo').textContent = `共 ${allLabels.length} 張標籤，${totalPages} 頁`;
+  $('labelSizeInfo').textContent = `每張高度約 ${labelH.toFixed(1)}mm`;
+
+  for (let p = 0; p < totalPages; p++) {
+    const pageEl = document.createElement('div');
+    pageEl.className = 'page';
+
+    const containerEl = document.createElement('div');
+    containerEl.className = 'label-container';
+
+    const start = p * labelsPerPage;
+    const pageLabels = allLabels.slice(start, start + labelsPerPage);
+
+    // 空位補寄件人格式
+    while (pageLabels.length < labelsPerPage) {
+      pageLabels.push({
+        sender: { zip: state.sender.zip, address: state.sender.address, name: state.sender.name, phone: state.sender.phone },
+        recipient: { unit: '', name: '', phone: '', address: '', zip: '' },
+        note: ''
+      });
+    }
+
+    pageLabels.forEach((data, idx) => {
+      const labelEl = MailLabelRenderer.createLabel(data, start + idx);
+      labelEl.style.height = labelH + 'mm';
+      containerEl.appendChild(labelEl);
+    });
+
+    pageEl.appendChild(containerEl);
+    container.appendChild(pageEl);
+  }
+
+  applyFontSize();
+}
+
+// ===== 套用字體大小 ======
+function applyFontSize() {
+  const size = state.fontSize;
+  document.querySelectorAll('.info-row').forEach(el => el.style.fontSize = size + 'pt');
+}
+
+// ===== 事件監聽：寄件人 ======
+$('senderZip').addEventListener('input', e => { state.sender.zip = e.target.value; });
+$('senderAddress').addEventListener('input', e => { state.sender.address = e.target.value; });
+$('senderName').addEventListener('input', e => { state.sender.name = e.target.value; });
+$('senderPhone').addEventListener('input', e => { state.sender.phone = e.target.value; });
+
+let senderTimer;
+['senderZip','senderAddress','senderName','senderPhone'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    clearTimeout(senderTimer);
+    senderTimer = setTimeout(render, 150);
+  });
+});
+
+// ===== 事件監聽：收件人批量 ======
+$('recipientBatch').addEventListener('input', function() {
+  state.recipients = parseRecipients(this.value);
+  render();
+});
+
+// ===== 事件監聽：預設備註 ======
+$('defaultNote').addEventListener('input', function() {
+  state.defaultNote = this.value;
+  render();
+});
+
+// ===== 事件監聽：每頁張數（自由數字）=====
+$('labelsPerPage').addEventListener('input', function() {
+  let val = parseInt(this.value, 10);
+  if (isNaN(val) || val < 2) val = 2;
+  if (val > 20) val = 20;
+  if (val % 2 !== 0) val = val - 1; // 強迫偶數
+  this.value = val;
+  state.labelsPerPage = val;
+  render();
+});
+
+// ===== 事件監聽：字體大小 ======
+$('fontSizeSlider').addEventListener('input', function() {
+  state.fontSize = parseFloat(this.value);
+  $('fontSizeValue').textContent = this.value + 'pt';
+  applyFontSize();
+});
+
+// ===== 初始渲染 =====
+render();
+</script>
+
+</body>
+</html>

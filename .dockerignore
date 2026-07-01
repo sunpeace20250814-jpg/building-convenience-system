@@ -1,0 +1,48 @@
+# .dockerignore at repo root
+# Used by `docker build` from root context (api & web services both build from .)
+
+# Dependencies
+**/node_modules
+
+# Build artifacts
+**/dist
+**/build
+**/.turbo
+**/.cache
+
+# Test & dev artifacts
+**/coverage
+**/test-results
+**/playwright-report
+**/.playwright
+**/.vitest-cache
+**/*.log
+**/preview*.log
+
+# Editor / OS
+**/.vscode
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+**/.git
+**/.gitignore
+**/.github
+
+# VCS / backup
+**/*.bak
+**/*.swp
+**/*.swo
+**/*~
+
+# Documentation (kept in repo, but rebuild docs inside container not needed)
+# Uncomment if you want smaller build context:
+# docs/
+
+# Mavis / harness
+.harness
+.mavis
+
+# Docker itself
+docker-compose*.yml
+Dockerfile
+.dockerignore

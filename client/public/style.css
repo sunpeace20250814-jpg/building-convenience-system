@@ -1,0 +1,162 @@
+/* ========================================
+   MAIL LABEL SYSTEM v3.3
+   列印樣式 — CSS Columns（Word 分欄行為）
+   ======================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+  background: #fff;
+}
+
+/* ----- 頁面：A4 固定尺寸，內容垂直流動 ----- */
+.page {
+  width: 210mm;
+  height: 297mm;
+  padding: 3mm 4mm;
+  overflow: hidden;          /* 超出裁切，讓瀏覽器自然分頁 */
+  page-break-after: always;  /* 每個 page 結尾強迫換頁 */
+  background: #fff;
+}
+
+/* ----- 卡片容器：CSS 分欄，2欄，內容垂直流動 ----- */
+.label-container {
+  height: 100%;
+  column-count: 2;
+  column-gap: 2.5mm;
+  column-fill: auto;         /* 每欄填滿後流到下一欄 */
+}
+
+/* ----- 卡片：block 排列，強迫不拆開 ----- */
+.label {
+  border: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  break-inside: avoid;       /* 不在中間分頁 */
+  page-break-inside: avoid;
+  margin-bottom: 2.5mm;      /* 欄間距 */
+}
+
+.label-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ----- 區塊 ----- */
+.section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* ----- 資料列 ----- */
+.info-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  font-size: 11pt;
+  font-weight: bold;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.info-label {
+  flex-shrink: 0;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.info-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  font-weight: bold;
+}
+
+.info-zip-box {
+  flex-shrink: 0;
+  font-weight: bold;
+  margin-left: 6px;
+  white-space: nowrap;
+  border: 1px solid #333;
+  padding: 0 4px;
+  line-height: 1.3;
+}
+
+.sender-section {
+  background: #e8e8e8;
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+.recipient-section {
+  background: #fff;
+  border-top: 2px solid #333;
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+.note-section {
+  border: 1px solid #999;
+  border-radius: 2px;
+  padding: 3px 6px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.note-text {
+  flex: 1;
+  word-break: break-all;
+}
+
+/* ========================================
+   列印設定
+   ======================================== */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .panel-left,
+  .preview-header {
+    display: none !important;
+  }
+  .app {
+    display: block !important;
+  }
+  .page {
+    width: 210mm !important;
+    height: 297mm !important;
+    padding: 3mm 4mm !important;
+    background: #fff !important;
+    margin: 0 auto !important;
+  }
+  .panel-right {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .label-container {
+    column-fill: auto !important;
+  }
+}

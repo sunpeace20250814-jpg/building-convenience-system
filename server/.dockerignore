@@ -1,0 +1,18 @@
+# Server-specific .dockerignore (mostly redundant with root .dockerignore,
+# kept as a safety net when building server/ directly)
+
+node_modules
+dist
+build
+coverage
+test-results
+*.log
+.env
+.env.*
+.git
+.github
+.vscode
+.idea
+.DS_Store
+Dockerfile
+.dockerignore

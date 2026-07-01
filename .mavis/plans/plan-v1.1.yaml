@@ -1,0 +1,258 @@
+version: 1
+plan:
+  name: 'V4 商業可用 v1.1 — Smoke + E2E + 雲端同步 + License + 文件'
+  max_concurrency: 4
+  max_consecutive_failures: 2
+  max_cycles: 4
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ====== Track 1: Server smoke test（最短、最快驗證基礎） ======
+  - id: 'server-smoke-test'
+    title: 'Server smoke test — 啟動 + curl 5 個關鍵端點'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：實際啟動 server，curl 驗證 5 個關鍵端點都回 200
+
+      步驟：
+      1. cd server
+      2. npx tsc（確認 0 錯誤，這步 < 30s）
+      3. 啟動 server 在 port 3099：$env:PORT=3099; npx tsx src/index.ts
+         用 Start-Process 在背景執行
+      4. 等待 3 秒後 curl 以下端點：
+         - GET http://localhost:3099/api/health
+         - GET http://localhost:3099/api/info
+         - GET http://localhost:3099/api/openapi.json
+         - GET http://localhost:3099/api/residents
+         - GET http://localhost:3099/api/buildings
+      5. 確認全部 200，記錄每個的 response body 摘要
+      6. 用 Stop-Process 關掉 server
+      7. 刪掉測試產生的 data/dev-test.db（避免污染正式資料）
+
+      失敗標準：任何端點 timeout / 500 / connection refused = FAIL
+
+      完成時報告 SMOKE_TEST_REPORT.md，含：
+      - 每個端點的 status code + body 前 200 字
+      - 啟動時間（從啟動到 /api/health 回 200 的秒數）
+      - 總計通過/失敗數
+
+      注意：這是純驗證任務，不要重構程式碼、不要新增功能。
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      獨立驗證 C:\Users\sunpe\dev\v4-resident-system\server\
+      1. 讀 SMOKE_TEST_REPORT.md 確認 5 個端點都 PASS
+      2. 自行重啟 server（PORT=3100 避免衝突），用 curl 確認 /api/health 回 200
+      3. 關掉 server
+      回報 PASS / FAIL + 證據
+    max_retries: 1
+
+  # ====== Track 2: Playwright 瀏覽器安裝 + 修現有 E2E spec ======
+  - id: 'e2e-playwright-setup'
+    title: 'Playwright 瀏覽器安裝 + 修現有 7 個 E2E spec 跑得起來'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system\client
+
+      目標：E2E 測試能實際跑（之前是缺瀏覽器二進位）
+
+      步驟：
+      1. cd client
+      2. npx playwright install chromium（可能需 1-3 分鐘下載 ~150MB）
+         - Windows 需要先安裝 Visual Studio Build Tools 嗎？檢查錯誤訊息
+         - 如果卡在系統依賴，記錄錯誤但繼續做其他步驟
+      3. 確認 e2e/ 目錄裡有幾個 spec：用 Get-ChildItem e2e -Filter "*.spec.ts" | Measure-Object
+      4. 讀所有現有 spec，看看 selector 是否對應最新元件
+         （檢查頁面文字、按鈕文字是否還存在）
+      5. 如果 selector 過時，更新它（用 Select-String 找 .click('.x-舊-class')）
+      6. 啟動 dev server 在 port 5174：npm run dev -- --port 5174
+      7. 跑 npx playwright test --reporter=line --workers=1
+      8. 收集結果到 E2E_TEST_REPORT.md
+
+      如果瀏覽器安裝失敗（公司環境無 internet 給 playwright）：
+      - 仍然建立 E2E_TEST_REPORT.md
+      - 標明「瀏覽器安裝失敗 — 需要在有 internet 環境跑」
+      - 但確認 spec 檔案本身可被 playwright 解析（npx playwright test --list）
+
+      完成時報告：
+      - 跑的 spec 數量、通過/失敗
+      - 哪些 spec 修了 selector
+      - 如果失敗，失敗原因（瀏覽器缺？selector 錯？）
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\client\
+      1. E2E_TEST_REPORT.md 存在且內容完整
+      2. 如果有跑：列出通過率
+      3. 如果沒跑：確認原因明確（瀏覽器二進位缺失）
+      4. e2e/ 目錄的 spec 檔案沒被刪減（用 Select-String 計算 "test(" 數量對比）
+      PASS / FAIL + 證據
+    max_retries: 1
+
+  # ====== Track 3: 雲端同步 API（client ↔ server） ======
+  - id: 'cloud-sync-api'
+    title: '雲端同步 API — client 上傳/下載整包 SQLite'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：用戶可選地把整個本地 SQLite 同步到 server（純雲端備援，不改本地 UX）
+
+      重要：避免上次第 3 軌 timeout 死循環。
+      - 不要重構既有程式碼
+      - 用「直寫 SQL + 簡單 wrapper」，不要 generic Repository
+      - 最多新增 4 個檔案，不要碰既有檔案
+
+      Server 新增（4 個檔案）：
+      1. server/src/routes/sync.ts — Express-style 路由
+         - POST /api/sync/upload（body: { dbBase64: string, deviceId: string }）
+           → 存到 server/data/sync/<deviceId>.db
+         - GET /api/sync/download?deviceId=xxx
+           → 回傳 db bytes 或 404
+         - GET /api/sync/list
+           → 列出所有 deviceId + 上傳時間
+         - DELETE /api/sync/:deviceId
+           → 刪除
+      2. server/src/db/sync.ts — helpers
+         - ensureSyncDir()
+         - getSyncPath(deviceId)
+         - validateDbSize(bytes)（限制 50MB）
+
+      Client 新增（1 個檔案）：
+      3. client/src/sync/cloudSync.ts
+         - syncUpload(): Promise<{ ok, sizeBytes }>
+         - syncDownload(): Promise<Uint8Array | null>
+         - syncList(): Promise<{ deviceId, uploadedAt, sizeBytes }[]>
+         - 自動從 localStorage 讀 deviceId（沒則產生 UUID）
+
+      Client 新增 1 個 UI：
+      4. client/src/modules/backup/CloudSyncPanel.tsx
+         - 顯示雲端備份清單（list）
+         - 「上傳到雲端」按鈕（呼叫 upload）
+         - 「從雲端還原」按鈕（呼叫 download）
+         - 「刪除」按鈕（呼叫 DELETE）
+         - 嵌入 BackupModule.tsx 頁面
+
+      server/src/index.ts 在 register routes 區塊加：
+        await fastify.register(syncRoutes, { prefix: '/api/sync' });
+
+      驗證：
+      - cd server; npx tsc --noEmit 0 錯誤
+      - cd client; npx tsc --noEmit 0 錯誤
+      - 啟動 server 在 3099，curl -X POST /api/sync/upload -d '{"dbBase64":"AA==","deviceId":"test-1"}' 確認 200
+
+      完成時報告 CLOUD_SYNC_REPORT.md：
+      - 新增/修改檔案清單
+      - 每個 API 端點的 curl 範例
+      - tsc 結果
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\
+      1. cd server && npx tsc --noEmit 必須 0 錯誤
+      2. cd client && npx tsc --noEmit 必須 0 錯誤
+      3. server/src/routes/sync.ts 存在且有 4 個 handler（用 Select-String "fastify\.(get|post|delete)" 計算）
+      4. server/src/index.ts 有 register syncRoutes
+      5. client/src/sync/cloudSync.ts 存在
+      6. client/src/modules/backup/CloudSyncPanel.tsx 存在
+      7. 啟動 server，curl 4 個 sync 端點都回 200
+      8. CLOUD_SYNC_REPORT.md 存在
+      PASS / FAIL + 證據
+    max_retries: 2
+
+  # ====== Track 4: License / 訂閱系統（輕量版） ======
+  - id: 'license-subscription'
+    title: 'License 系統 — 輕量版（key 驗證 + 過期 + 訂閱狀態）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：支援「免費試用 → 訂閱付費」商業模式，最簡版本
+
+      重要：避免上次第 3 軌 timeout。
+      - 新增 3 個檔案，不動既有
+      - 用最簡的 License 機制（不接金流，只驗 key + 過期）
+
+      Server 新增：
+      1. server/src/routes/license.ts
+         - POST /api/license/activate { email, key }
+           → 啟用 / 記錄到 licenses Table
+         - GET /api/license/status?key=xxx
+           → { valid: bool, expiresAt: ISO, tier: 'free'|'pro' }
+         - POST /api/license/deactivate { key }
+      2. server/src/db/license.ts
+         - activate(email, key) — 產生 expiresAt = +365 天
+         - checkKey(key) — 看是否過期
+         - deactivate(key)
+         - 用記憶體 Map 儲存（不需新 Table，簡化）
+      3. server/src/db/index.ts 加一行 licenses Map
+
+      Client 新增：
+      4. client/src/license/LicenseGate.tsx
+         - useLicense() hook 從 localStorage 讀 key、fetch status
+         - <LicenseGate> HOC：未啟用時遮罩頁面、顯示啟用 UI
+         - 「輸入授權碼」按鈕 → 呼叫 activate
+         - 「免費試用」按鈕 → 設 30 天試用期
+      5. client/src/modules/backup/LicensePanel.tsx
+         - 顯示目前授權狀態（過期日 / 層級）
+         - 啟用 / 停用按鈕
+         - 嵌入 BackupModule
+
+      server/src/index.ts 加 register。
+
+      驗證：
+      - cd server && npx tsc 0 錯誤
+      - cd client && npx tsc 0 錯誤
+      - 啟動 server，curl 3 個 license 端點都回 200
+
+      完成報告 LICENSE_REPORT.md
+    assigned_to: 'coder'
+    verified_by: 'verifier'
+    verify_prompt: |
+      驗證 C:\Users\sunpe\dev\v4-resident-system\
+      1. server && npx tsc --noEmit 0 錯誤
+      2. client && npx tsc --noEmit 0 錯誤
+      3. license routes 存在（3 個 handler）
+      4. LicenseGate.tsx 存在
+      5. LicensePanel.tsx 存在
+      6. 啟動 server，curl 3 個 license 端點回 200
+      PASS / FAIL
+    max_retries: 2
+
+  # ====== Final gate: README + 部署指南整合 ======
+  - id: 'final-docs-deploy-guide'
+    title: 'README 更新 + 部署指南（Caddy HTTPS + 雲端同步 + License）'
+    prompt: |
+      工作目錄：C:\Users\sunpe\dev\v4-resident-system
+
+      目標：把 A/B/C/D 產出整合到 README + 新增部署章節
+
+      depends_on: server-smoke-test, e2e-playwright-setup, cloud-sync-api, license-subscription
+
+      步驟：
+      1. 讀各 track 報告（SMOKE_TEST_REPORT, E2E_TEST_REPORT, CLOUD_SYNC_REPORT, LICENSE_REPORT）
+      2. 更新 README.md：
+         - 加「雲端同步」章節（如何啟用、收費、隱私）
+         - 加「License / 訂閱」章節
+         - 把「環境需求」更新成實測值
+         - 加「真實部署」段落，指向 docs/deploy.md
+      3. 建立 docs/deploy.md：
+         - 5 步驟 VPS 部署（從買機器到上線）
+         - Caddyfile 範例（自動 HTTPS via Let's Encrypt）
+         - 環境變數清單（PORT, ALLOWED_ORIGINS, NODE_ENV）
+         - 防火牆規則（ufw）
+         - 監控建議（health check endpoint 加 cron）
+         - 故障排除（DB 損壞、port 衝突、CORS 錯誤）
+      4. CHANGELOG.md 加 v1.1.0 條目
+
+      驗證：
+      - README.md 字數 > 5000（含新章節）
+      - docs/deploy.md 存在且含所有 5 步驟
+      - 5 個報告檔案都被引用
+
+      給驗證者的標準：
+      - 任何報告缺失 / 章節缺失 = FAIL
+    role: verify-as-task
+    assigned_to: 'verifier'
+    depends_on: ['server-smoke-test', 'e2e-playwright-setup', 'cloud-sync-api', 'license-subscription']
+    max_retries: 1
