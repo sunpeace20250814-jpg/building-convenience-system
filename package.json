@@ -7,7 +7,7 @@
     "dev:all": "start /b pnpm --filter @v4-resident/server run dev & timeout /t 3 /nobreak >nul & start /b pnpm --filter @v4-resident/client run dev & echo 系統已啟動！前端: http://localhost:9527  後端: http://localhost:9527",
     "cli": "pnpm --filter @v4-resident/cli run cli",
     "build": "pnpm -r run build",
-    "build:server": "pnpm --filter @v4-resident/shared run build && pnpm --filter @v4-resident/server run build",
+    "build:server": "pnpm --filter @v4-resident/server run build",
     "start": "pnpm --parallel -r run start"
   }
 }

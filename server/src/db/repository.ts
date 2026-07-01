@@ -296,7 +296,6 @@ export const repositories = {
   holidays: new Repository('holidays'),
   holiday_categories: new Repository('holiday_categories'),
   calendar_events: new Repository('calendar_events'),
-  day_colors: new Repository('day_colors'),
   training_records: new Repository('training_records'),
   home_tabs: new Repository('home_tabs'),
   home_records: new Repository('home_records'),
@@ -333,7 +332,6 @@ export const scheduleNoteRepository = repositories.schedule_notes;
 export const holidayRepository = repositories.holidays;
 export const holidayCategoryRepository = repositories.holiday_categories;
 export const calendarEventRepository = repositories.calendar_events;
-export const dayColorRepository = repositories.day_colors;
 export const trainingRepository = repositories.training_records;
 export const homeTabRepository = repositories.home_tabs;
 export const homeRecordRepository = repositories.home_records;

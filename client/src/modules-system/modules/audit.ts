@@ -36,7 +36,7 @@ export const auditManifest: ModuleManifest = {
   name: '修改稽核記錄',
   category: 'core',
   description: '記錄所有資料變更的歷史（誰、何時、改了什麼）。建議永遠啟用。',
-  defaultEnabled: true,
+  defaultEnabled: false, // M-50 修復:backend 未實作,避免點到 crash;後續實作後改回 true
   core: true,
   schema: SCHEMA,
   routes: [

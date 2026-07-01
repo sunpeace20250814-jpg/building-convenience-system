@@ -359,13 +359,6 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS day_colors (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL UNIQUE,
-  color TEXT NOT NULL,
-  note TEXT
-);
-
 CREATE TABLE IF NOT EXISTS training_records (
   id TEXT PRIMARY KEY,
   employee_id TEXT NOT NULL,
@@ -545,7 +538,6 @@ export const ALL_TABLES = [
   'schedule_notes',
   'holidays',
   'calendar_events',
-  'day_colors',
   'training_records',
   'home_tabs',
   'home_records',

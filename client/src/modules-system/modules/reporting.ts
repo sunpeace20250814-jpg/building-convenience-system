@@ -14,7 +14,7 @@ export const reportingManifest: ModuleManifest = {
   name: '報表中心',
   category: 'reporting',
   description: '統一報表入口：收支趨勢、住戶分析、圖表儀表板。',
-  defaultEnabled: true,
+  defaultEnabled: false, // M-50 修復:backend 未實作,避免點到 crash;後續實作後改回 true
   routes: [
     { path: '/reports', label: '報表中心', icon: 'PieChart' },
     { path: '/reports/custom', label: '自訂報表', icon: 'Code' },

@@ -14,32 +14,32 @@
  * - 前端不存任何用戶資料（除了 localStorage 少量偏好）
  * - 不需要 sql.js / IndexedDB / FileSystemAccess
  *
- * 此檔保留為「API 相容 stub」，原因是 13 個模組仍未遷移到 apiClient
- * （見下方 TECH_DEBT 列表 + ERR-017）。
- * Stub 會保留所有原本的 export 名稱，確保 build 通過；
- * 但**執行時呼叫會拋出明確錯誤**，指向 apiClient 遷移方向。
+ * M-50 修復 (2026-07-01)：
+ * - 原本 throw-stub 改為 graceful no-op（console.warn + 安全默認值）
+ * - 理由:NotificationBell 在 sidebar 一渲染就會 call queryAll,原本會 crash
+ * - 7 個模組仍未完整 migrate 到 server API,但現在 UI 不會 crash
+ * - 後續:逐個模組 migrate 後刪除對應 import,最終整個檔案可刪
  *
- * TECH_DEBT（13 個未遷移模組 — 見 ERR-017）：
- * 1. client/src/api/decoration-records.ts — queryAll/execute
- * 2. client/src/api/parking-binding.ts — execute
- * 3. client/src/api/resident-parking.ts — queryAll/execute
- * 4. client/src/api/resident-emergency-contacts.ts — queryAll/execute
- * 5. client/src/lib/onboarding.ts — queryAll/execute（已遷移完成）
- * 6. client/src/modules/backup/index.tsx — getLocationDescription
- * 7. client/src/modules/settings/StorageSettings.tsx — switchToFileSystemStorage 等
- * 8. client/src/modules/monitoring/index.tsx — getDb
- * 9. client/src/modules/tutorials/index.tsx — queryAll/execute
- * 10. client/src/modules-system/index.ts — execute/isReady
- * 11. client/src/modules-system/modules/double-entry.ts — execute/queryAll/queryOne
- * 12. client/src/modules-system/modules/reporting.ts — dynamic import queryAll
- * 13. client/src/modules-system/modules/invoice.ts — dynamic import queryAll
- * 14. client/src/modules-system/pages/JournalEntries.tsx — queryAll/execute/transaction
- * 15. client/src/security/field-encryption.ts — queryAll/execute
- * 16. client/src/notifications/system.ts — queryAll
- * 17. client/src/ai/sql-executor.ts — queryAll
- * 18. client/src/monitoring/stress-test.ts — getDb
- * 19. client/src/storage/backupManager.ts — queryAll/execute/exportDatabase/importDatabase
- * 20. client/src/storage/appLog.ts — queryAll/execute
+ * 仍呼叫此 stub 的模組清單（migrate 完即可刪 import）：
+ *   - client/src/ai/sql-executor.ts (queryAll)
+ *   - client/src/notifications/system.ts (queryAll → 後端需建 notification API)
+ *   - client/src/security/field-encryption.ts (queryAll/execute → 後端需建欄位加密 API)
+ *   - client/src/storage/backupManager.ts (queryAll/execute → 部分已有 /api/backup-history)
+ *   - client/src/storage/appLog.ts (queryAll/execute → 後端需建 app_log API)
+ *   - client/src/modules-system/modules/double-entry.ts (整個模組待實作 backend)
+ *   - client/src/modules-system/modules/invoice.ts (整個模組待實作 backend)
+ *   - client/src/modules-system/modules/reporting.ts (整個模組待實作 backend)
+ *   - client/src/modules-system/pages/JournalEntries.tsx (整個會計 UI 待實作)
+ *
+ * 已完成 migrate（從 TECH_DEBT 移除）：
+ *   ✓ client/src/api/decoration-records.ts (走 /api/decoration-records)
+ *   ✓ client/src/api/parking-binding.ts (走 /api/parking-binding)
+ *   ✓ client/src/api/resident-parking.ts (走 /api/resident-parking)
+ *   ✓ client/src/api/resident-emergency-contacts.ts (走 /api/resident-emergency-contacts)
+ *   ✓ client/src/lib/onboarding.ts
+ *   ✓ client/src/modules/backup/index.tsx
+ *   ✓ client/src/modules/settings/StorageSettings.tsx
+ *   ✓ client/src/modules/monitoring/index.tsx
  *
  * 詳細錯誤規則：見 V4/ERRORS.md ERR-014, ERR-017
  */
@@ -54,26 +54,24 @@ export type { TableName };
 
 // ==================== 錯誤輔助 ====================
 
-function deprecationError(fnName: string): Error {
-  return new Error(
-    `[storage] ${fnName}() 已棄用 — V4 已改用 @/lib/apiClient 走 server-side SQLite。\n` +
-    `本檔為 throw-stub，呼叫會拋錯。\n` +
-    `請遷移：見 V4/ERRORS.md ERR-017。`
+function deprecationWarn(fnName: string): void {
+  // M-50 修復 (2026-07-01): 改 throw 為 console.warn + 安全默認值
+  // 原因:仍有 7 個模組 import 此檔,原本 throw 會讓 UI crash (例如 NotificationBell 在 sidebar 一開就 crash)
+  // 改為:console.warn 提醒開發者,回傳安全默認值讓 UI 仍能 render
+  // 後續:逐步 migrate 到 @/lib/apiClient,移除此 stub 整個檔
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[storage/database.ts] ${fnName}() called but is DEPRECATED — V4 should use @/lib/apiClient. Returning safe default.`
   );
 }
-
-function check(fnName: string): never {
-  throw deprecationError(fnName);
-}
-
-// ==================== Stub exports (build compat only) ====================
 
 /**
  * 通用查詢 — 已被 @/lib/apiClient 取代
  * @deprecated 見 ERR-017
  */
 export function queryAll<T = any>(_sql: string, _params: any[] = []): T[] {
-  check('queryAll');
+  deprecationWarn('queryAll');
+  return [];
 }
 
 /**
@@ -81,7 +79,8 @@ export function queryAll<T = any>(_sql: string, _params: any[] = []): T[] {
  * @deprecated 見 ERR-017
  */
 export function queryOne<T = any>(_sql: string, _params: any[] = []): T | null {
-  check('queryOne');
+  deprecationWarn('queryOne');
+  return null;
 }
 
 /**
@@ -89,7 +88,7 @@ export function queryOne<T = any>(_sql: string, _params: any[] = []): T | null {
  * @deprecated 見 ERR-017
  */
 export function execute(_sql: string, _params: any[] = []): void {
-  check('execute');
+  deprecationWarn('execute');
 }
 
 /**
@@ -97,7 +96,7 @@ export function execute(_sql: string, _params: any[] = []): void {
  * @deprecated 見 ERR-017
  */
 export function lastInsertRowid(): number {
-  check('lastInsertRowid');
+  deprecationWarn('lastInsertRowid');
   return 0;
 }
 
@@ -106,15 +105,18 @@ export function lastInsertRowid(): number {
  * @deprecated 見 ERR-017
  */
 export function transaction<T>(_fn: () => T): T {
-  check('transaction');
+  deprecationWarn('transaction');
+  // M-50:不執行 callback (避免部分副作用),回傳 undefined
+  return undefined as unknown as T;
 }
 
 /**
  * 取得底層 Database — 已無底層 db
  * @deprecated 見 ERR-017
  */
-export function getDb(): never {
-  check('getDb');
+export function getDb(): null {
+  deprecationWarn('getDb');
+  return null;
 }
 
 /**
@@ -130,45 +132,46 @@ export function isReady(): boolean {
  */
 export class Repository<T extends { id: string }> {
   constructor(public table: TableName, public idField: string = 'id') {}
-  getAll(_orderBy = 'id'): T[] { check('Repository.getAll'); }
-  getById(_id: string): T | null { check('Repository.getById'); }
-  create(_data: any): T { check('Repository.create'); }
-  update(_id: string, _data: any): T | null { check('Repository.update'); }
-  delete(_id: string): boolean { check('Repository.delete'); }
+  getAll(_orderBy = 'id'): T[] { deprecationWarn('Repository.getAll'); return []; }
+  getById(_id: string): T | null { deprecationWarn('Repository.getById'); return null; }
+  create(_data: any): T { deprecationWarn('Repository.create'); throw new Error('Repository.create 已停用,請改用 @/lib/apiClient'); }
+  update(_id: string, _data: any): T | null { deprecationWarn('Repository.update'); throw new Error('Repository.update 已停用,請改用 @/lib/apiClient'); }
+  delete(_id: string): boolean { deprecationWarn('Repository.delete'); return false; }
 }
 
-// ==================== 已被完全移除的函式（保留為 throw-stub）====================
+// ==================== 已被完全移除的函式（保留為 graceful no-op）====================
 // 以下為 App.tsx / StorageSettings / Onboarding 等模組原本呼叫的函式。
-// Phase 9 移除；任何殘留 import 會在執行時拋錯。
+// M-50 修復:由 throw-stub 改為 graceful no-op,確保 UI 不會 crash。
 
 /** @deprecated 見 ERR-017 */
 export async function initDefaultStorage(): Promise<{ restored: boolean }> {
-  check('initDefaultStorage');
+  deprecationWarn('initDefaultStorage');
+  return { restored: false };
 }
 /** @deprecated 見 ERR-017 */
 export async function switchToFileSystemStorage(): Promise<void> {
-  check('switchToFileSystemStorage');
+  deprecationWarn('switchToFileSystemStorage');
 }
 /** @deprecated 見 ERR-017 */
 export async function switchToIndexedDBStorage(): Promise<void> {
-  check('switchToIndexedDBStorage');
+  deprecationWarn('switchToIndexedDBStorage');
 }
 /** @deprecated 見 ERR-017 */
 export async function changeFolder(): Promise<void> {
-  check('changeFolder');
+  deprecationWarn('changeFolder');
 }
 /** @deprecated 見 ERR-017 */
 export function scheduleSave(_immediate = false): void {
-  check('scheduleSave');
+  deprecationWarn('scheduleSave');
 }
 /** @deprecated 見 ERR-017 */
 export function exportDatabase(): Uint8Array {
-  check('exportDatabase');
+  deprecationWarn('exportDatabase');
   return new Uint8Array(0);
 }
 /** @deprecated 見 ERR-017 */
 export async function importDatabase(_bytes: Uint8Array): Promise<void> {
-  check('importDatabase');
+  deprecationWarn('importDatabase');
 }
 /** @deprecated 見 ERR-017 */
 export function getStorageBackend(): string {
@@ -191,20 +194,22 @@ export function onDatabaseChange(_cb: () => void): () => void {
   return () => {};
 }
 /** @deprecated 見 ERR-017 */
-export function getDatabaseState(): never {
-  check('getDatabaseState');
+export function getDatabaseState(): null {
+  deprecationWarn('getDatabaseState');
+  return null;
 }
 /** @deprecated 見 ERR-017 */
 export async function initSqlJsEngine(): Promise<void> {
-  check('initSqlJsEngine');
+  deprecationWarn('initSqlJsEngine');
 }
 
 /** @deprecated 見 ERR-017 */
-export async function selectFolderAndInit(): Promise<any> {
-  check('selectFolderAndInit');
+export async function selectFolderAndInit(): Promise<null> {
+  deprecationWarn('selectFolderAndInit');
+  return null;
 }
 /** @deprecated 見 ERR-017 */
 export async function tryRestorePrevious(): Promise<boolean> {
-  check('tryRestorePrevious');
+  deprecationWarn('tryRestorePrevious');
   return false;
 }

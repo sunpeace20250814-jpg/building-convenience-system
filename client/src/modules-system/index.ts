@@ -9,24 +9,23 @@
  */
 
 import { modules, type ModuleManifest } from './registry';
-import { doubleEntryManifest, seedDefaultAccounts } from './modules/double-entry';
-import { accountsManifest } from './modules/accounts';
-import { invoiceManifest } from './modules/invoice';
-import { bankReconcileManifest } from './modules/bank-reconcile';
-import { receivablesManifest } from './modules/receivables';
-import { auditManifest } from './modules/audit';
-import { reportingManifest } from './modules/reporting';
+// ★ M-50 修復 (2026-07-01): 會計模組 backend 尚未實作,暫時不 import manifest
+// import { doubleEntryManifest, seedDefaultAccounts } from './modules/double-entry';
+// import { accountsManifest } from './modules/accounts';
+// import { invoiceManifest } from './modules/invoice';
+// import { bankReconcileManifest } from './modules/bank-reconcile';
+// import { receivablesManifest } from './modules/receivables';
+// import { auditManifest } from './modules/audit';
+// import { reportingManifest } from './modules/reporting';
 // ★ Phase 9：execute/isReady 已從 @/storage/database 移除（V4 不再有本地 SQLite）
 import { monitor } from '@/monitoring/core';
 
+// ★ M-50 修復 (2026-07-01): 會計模組 backend 尚未實作,從 ALL_MODULES 移除避免用戶啟用後 crash
+//   - accounts / double-entry / invoice / bank-reconcile / receivables / audit / reporting
+//   - 全部 stub-driven,點進去就 throw 「storage/database.ts 已棄用」
+//   - 待 backend 實作後再放回 ALL_MODULES
 const ALL_MODULES: ModuleManifest[] = [
-  auditManifest,         // 核心，永遠啟用
-  reportingManifest,     // 報表中心
-  accountsManifest,      // 多帳戶
-  doubleEntryManifest,   // 複式記帳
-  invoiceManifest,       // 統一發票
-  bankReconcileManifest, // 銀行對帳
-  receivablesManifest,   // 應收/應付
+  // 暫時全部禁用 — 待會計模組 backend 實作
 ];
 
 /** 註冊所有內建模組 */
@@ -47,14 +46,8 @@ export function setupModuleSchemaApplier(): void {
     // server-side schema 套用：略過本地端
     console.log(`[modules-system] schema applier no-op for ${moduleId} (server-side handled)`);
 
-    // 啟用複式記帳時 seed 預設科目（仍嘗試執行，由 stub 函式決定是否可用）
-    if (moduleId === 'double-entry') {
-      try {
-        seedDefaultAccounts();
-      } catch (err: any) {
-        monitor.recordError('Seed 預設科目失敗', 'modules.seed', 'warn', { error: err });
-      }
-    }
+    // ★ M-50 修復:double-entry module 已停用,seedDefaultAccounts 也已 import 停用
+    //   待 backend 實作後再放回 seed 邏輯
   });
 }
 
@@ -80,7 +73,8 @@ export async function bootstrapModules(): Promise<void> {
 
   // 啟用複式記帳時 seed（server-side 處理）
   if (modules.isEnabled('double-entry')) {
-    try { seedDefaultAccounts(); } catch {}
+    // ★ M-50:double-entry 已停用,seedDefaultAccounts 也停用
+    // try { seedDefaultAccounts(); } catch {}
   }
 
   monitor.recordMetric('modules.total', modules.all().length);

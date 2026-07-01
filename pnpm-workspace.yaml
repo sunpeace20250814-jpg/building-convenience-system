@@ -1,7 +1,6 @@
 packages:
   - 'client'
   - 'server'
-  - 'shared'
   - 'cli'
 allowBuilds:
   better-sqlite3: set this to true or false

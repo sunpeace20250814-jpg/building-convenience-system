@@ -44,7 +44,7 @@ export const accountsManifest: ModuleManifest = {
   name: '多帳戶管理',
   category: 'accounting',
   description: '管理現金、銀行、信用卡等多個帳戶，追蹤餘額、記錄轉帳。',
-  defaultEnabled: true,
+  defaultEnabled: false, // M-50 修復:backend 未實作,避免點到 crash
   schema: SCHEMA,
   routes: [
     { path: '/accounts', label: '帳戶', icon: 'Wallet' },

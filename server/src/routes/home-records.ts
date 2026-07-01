@@ -125,7 +125,7 @@ export default async function homeRecordsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request) => {
-      const created = repo.create(request.body);
+      const created = repo.create(request.body) as { tabId?: string | null } | null;
       // M-09 修復：POST response 含 tabName（一致於 GET）
       if (created && created.tabId) {
         const tab = repositories.home_tabs.getById(created.tabId);

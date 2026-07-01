@@ -374,15 +374,10 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   updated_at TEXT NOT NULL
 );
 
--- ⚠️ DEPRECATED — day_colors 表 0 consumer (V3 殘留)
--- 不再新增功能；保留 schema 以避免破壞舊 DB
--- Phase 5: 之後可安全 DROP（先把 ALL_TABLES 移除、跑 migration）
-CREATE TABLE IF NOT EXISTS day_colors (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL UNIQUE,
-  color TEXT NOT NULL,
-  note TEXT
-);
+-- day_colors 表已刪除 (M-51 修復 2026-07-01):
+--   - V3 殘留,0 consumer
+--   - schema 移除 + migration 加上 DROP TABLE
+--   - 從 ALL_TABLES 移除
 
 CREATE TABLE IF NOT EXISTS training_records (
   id TEXT PRIMARY KEY,
@@ -399,6 +394,20 @@ CREATE TABLE IF NOT EXISTS home_tabs (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   sort_order INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- License 表 (M-52 修復 2026-07-01):
+--   原本 license.ts 用 in-memory Map 儲存,server 重啟資料全失
+--   改用 SQLite 持久化,商業發布前必須
+CREATE TABLE IF NOT EXISTS licenses (
+  key TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  tier TEXT NOT NULL,            -- free | pro | enterprise
+  expires_at TEXT NOT NULL,
+  activated_at TEXT NOT NULL,
+  device_limit INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -518,11 +527,11 @@ export const ALL_TABLES = [
   'holidays',
   'holiday_categories',
   'calendar_events',
-  'day_colors',
   'training_records',
   'home_tabs',
   'home_records',
   'backup_history',
+  'licenses',
 ] as const;
 
 export type TableName = (typeof ALL_TABLES)[number];

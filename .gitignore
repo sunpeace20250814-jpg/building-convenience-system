@@ -111,6 +111,21 @@ $RECYCLE.BIN/
 # production DB 路徑（已用 *.db 排除但明確列出來避免誤會）
 server/data/
 
+# M-53 (2026-07-01): client e2e 截圖（regression 工具產出，不進版控）
+client/tests/e2e/*.png
+client/tests/e2e/*.mp4
+
+# client tests 結果 JSON（測試產物）
+client/tests/e2e/dbstatus-*.json
+
+# client public test scripts artifacts
+client/public/test-*.html
+
+# V4 舊文件目錄（已棄用但檔案還在）
+V4/check.sh
+V4/test-all-endpoints.mjs
+V4/verify.mjs
+
 # 測試環境產生檔（v4-test-env 內）
 client-final.log
 server-final.log

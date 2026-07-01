@@ -43,7 +43,21 @@ db.pragma('journal_mode = WAL'); // 提升並發讀寫效能
 db.pragma('foreign_keys = ON'); // 啟用 FK 約束
 
 /**
- * 檢查表是否已存在某欄位
+ * 檢查表是否已存在
+ */
+function hasTable(table: string): boolean {
+  try {
+    const row = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
+    ).get(table);
+    return !!row;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 檢查表是否已存在 + 列出所有欄位
  */
 function hasColumn(table: string, column: string): boolean {
   try {
@@ -243,6 +257,27 @@ function ensureParkingSpotsFK(): void {
 }
 
 /**
+ * M-51 修復 (2026-07-01): DROP day_colors 表（V3 殘留,0 consumer）
+ *
+ * 為什麼 SQLite 還需要 migration？因為 SCHEMA_SQL 的 CREATE TABLE IF NOT EXISTS
+ * 對已存在的表是 no-op。對舊 DB 仍存在的 day_colors 表要明確 DROP。
+ */
+function ensureDayColorsDropped(): void {
+  if (hasTable('day_colors')) {
+    try {
+      // 先關 FK 再 DROP 避免任何相依性阻擋
+      db.exec(`PRAGMA foreign_keys = OFF`);
+      db.exec(`DROP TABLE IF EXISTS day_colors`);
+      console.log('  migration: day_colors 表已 DROP (V3 殘留清理)');
+    } catch (e: any) {
+      console.log('  day_colors DROP failed:', String(e?.message ?? e));
+    } finally {
+      db.exec(`PRAGMA foreign_keys = ON`);
+    }
+  }
+}
+
+/**
  * 初始化資料庫
  * - 建立所有表 + 索引
  * - 跑 idempotent migration（補舊 .db 缺欄位）
@@ -255,6 +290,7 @@ export function initDatabase(): void {
   ensureResidentsColumns();
   ensureBuildingsColumns();
   ensureParkingSpotsFK();
+  ensureDayColorsDropped();
 
   // V4 預設 status_options
   const insertLegacyStatus = db.prepare(`
