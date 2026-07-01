@@ -77,6 +77,8 @@ import uploadsRoutes from './routes/uploads.js';
 import { accountingRoutes } from './routes/accounting.js';
 // M-56 修復 (2026-07-01): 會計報表 routes (Trial Balance / Balance Sheet / Income Statement / Cash Flow)
 import { accountingReportsRoutes } from './routes/accounting-reports.js';
+// M-58: 通知 routes (從 client-side migrate)
+import { notificationsRoutes } from './routes/notifications.js';
 
 // 雲端同步（直寫檔案，無 metadata 表）
 
@@ -218,6 +220,8 @@ async function start() {
   await fastify.register(accountingRoutes, { prefix: '/api/accounting' });
   // M-56: 會計報表 routes
   await fastify.register(accountingReportsRoutes, { prefix: '/api/accounting-reports' });
+  // M-58: 通知 routes (從 client-side migrate 到 server-side)
+  await fastify.register(notificationsRoutes);
   // M-15 修復：圖片本地檔案系統（取代 base64）
   await fastify.register(uploadsRoutes, { prefix: '/api/upload' });
 

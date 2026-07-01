@@ -1,11 +1,18 @@
 /**
- * 通知系統
- * 計算各種提醒：合約到期、生日、繳費逾期等
- * 結果透過訂閱傳給 UI
+ * 通知系統 — M-58 修復 (2026-07-01)
+ *
+ * 原本 client-side 用 queryAll 直接查 SQLite (storage/database.ts 已棄用為 throw-stub).
+ * 改成 fetch /api/notifications 走 server-side SQLite.
+ *
+ * 通知類型 (server-side 計算):
+ *   - 合約到期: move_out_date 在未來 30 天內
+ *   - 零用金餘額偏低: allowance_holders.balance < 1000
+ *   - 即將到來的國定假日: 14 天內
+ *
+ * 注意: 系統錯誤統計仍在 client-side (monitor 是 in-memory)
  */
 
-import { queryAll } from '@/storage/database';
-import { monitor } from '@/monitoring/core';
+import { apiClient } from '@/lib/apiClient';
 
 export type NotificationSeverity = 'info' | 'warning' | 'urgent';
 
@@ -43,94 +50,16 @@ export async function refreshNotifications(force = false): Promise<Notification[
     return cache;
   }
 
-  const notifications: Notification[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   try {
-    // 1. 合約到期（moveOutDate 在未來 30 天內）
-    const expiring = queryAll<any>(
-      `SELECT id, owner_name, renter_name, move_out_date FROM residents
-       WHERE move_out_date IS NOT NULL
-       AND date(move_out_date) BETWEEN date('now') AND date('now', '+30 days')
-       ORDER BY move_out_date`
-    );
-    for (const r of expiring) {
-      const days = Math.floor((new Date(r.moveOutDate).getTime() - today.getTime()) / 86400_000);
-      notifications.push({
-        id: `contract-${r.id}`,
-        title: `${r.owner_name} 合約即將到期`,
-        description: `剩 ${days} 天（${r.moveOutDate}）`,
-        severity: days <= 7 ? 'urgent' : 'warning',
-        category: 'contract',
-        link: '/residents',
-        createdAt: now,
-      });
-    }
-
-    // 2. 繳費逾期（最近 30 天沒有任何收支記錄的住戶，啟發式判斷）
-    // 簡化：略過（沒有 due_date 欄位）
-
-    // 3. 零用金餘額過低
-    const lowBalances = queryAll<any>(
-      `SELECT id, name, balance FROM allowance_holders WHERE balance < 1000 ORDER BY balance`
-    );
-    for (const a of lowBalances) {
-      notifications.push({
-        id: `balance-${a.id}`,
-        title: `${a.name} 零用金餘額偏低`,
-        description: `目前餘額 $${a.balance}，建議補充`,
-        severity: a.balance < 0 ? 'urgent' : 'warning',
-        category: 'low_balance',
-        link: '/expenses',
-        createdAt: now,
-      });
-    }
-
-    // 4. 即將到來的國定假日
-    const upcomingHolidays = queryAll<any>(
-      `SELECT id, date, name FROM holidays
-       WHERE date BETWEEN date('now') AND date('now', '+14 days')
-       ORDER BY date LIMIT 3`
-    );
-    for (const h of upcomingHolidays) {
-      const days = Math.floor((new Date(h.date).getTime() - today.getTime()) / 86400_000);
-      notifications.push({
-        id: `holiday-${h.id}`,
-        title: `${h.name}`,
-        description: days === 0 ? '就是今天' : `${days} 天後`,
-        severity: 'info',
-        category: 'system',
-        link: '/schedule',
-        createdAt: now,
-      });
-    }
-
-    // 5. 系統錯誤（最近 24h 有 error）
-    const errStats = monitor.getErrorCount(24 * 60 * 60 * 1000);
-    if (errStats.total > 10) {
-      notifications.push({
-        id: 'system-errors',
-        title: '近期錯誤過多',
-        description: `過去 24 小時累計 ${errStats.total} 個錯誤，建議查看監測頁面`,
-        severity: 'warning',
-        category: 'system',
-        link: '/monitoring',
-        createdAt: now,
-      });
-    }
-  } catch (err: any) {
-    monitor.recordError(`通知重新整理失敗: ${err.message}`, 'notifications', 'warn', { error: err });
+    const data = await apiClient.get<Notification[]>('/api/notifications');
+    cache = data ?? [];
+    lastFetch = now;
+    notify();
+    return cache;
+  } catch (err) {
+    // 失敗時保留 cache 不變(避免 UI 閃爍)
+    return cache;
   }
-
-  // 排序：urgent > warning > info
-  const severityOrder = { urgent: 0, warning: 1, info: 2 };
-  notifications.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-
-  cache = notifications;
-  lastFetch = now;
-  notify();
-  return cache;
 }
 
 export function clearNotificationCache(): void {
