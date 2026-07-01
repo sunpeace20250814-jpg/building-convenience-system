@@ -1,9 +1,18 @@
 /**
  * SQL 查詢安全檢查 + 執行器
- * AI 只能跑 SELECT，且欄位、表名、limit 都有限制
+ *
+ * M-62 修復 (2026-07-01): 從 client-side queryAll → server-side fetch
+ *
+ * Client 只做「本地 validate」+「送 server 執行」+「接收結果」
+ * Server-side (POST /api/ai/safe-query) 永遠重新驗證,不信任 client
+ *
+ * 注意:
+ *   - FORBIDDEN_KEYWORDS / ALLOWED_TABLES 在 server side 是 single source of truth
+ *   - client 的 whitelist 是 hint (讓 UI 在送 request 前可以快速擋)
+ *   - 即使 client 改了 whitelist, server 還會擋
  */
 
-import { queryAll } from '@/storage/database';
+import { apiClient } from '@/lib/apiClient';
 import { monitor } from '@/monitoring/core';
 
 const FORBIDDEN_KEYWORDS = [
@@ -12,9 +21,6 @@ const FORBIDDEN_KEYWORDS = [
   'grant', 'revoke', 'savepoint',
 ];
 
-// WITH 子句內可能用到但仍需檢查的關鍵字（允許子句內但擋外層操作）
-// const STATEMENT_STARTERS = ['with', 'select']; // 保留作為未來擴充用
-
 const ALLOWED_TABLES = new Set([
   'residents', 'resident_members', 'resident_keycards',
   'expense_records', 'expense_categories',
@@ -22,6 +28,7 @@ const ALLOWED_TABLES = new Set([
   'employees', 'shift_statuses', 'schedule_entries', 'holidays',
   'home_tabs', 'home_records',
   'buildings', 'parking_spots', 'status_options',
+  'accounts', 'journal_entries', 'journal_lines', 'accounting_periods',
 ]);
 
 export interface SafeQueryResult {
@@ -37,28 +44,21 @@ export function validateSQL(sql: string): { valid: boolean; error?: string; norm
     return { valid: false, error: 'SQL 不可為空' };
   }
 
-  // 移除多餘空白、註解
   const normalized = sql
     .replace(/--.*$/gm, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // 必須以 SELECT 開頭（或 WITH）
   if (!/^(SELECT|WITH)\s/i.test(normalized)) {
     return { valid: false, error: '只允許 SELECT 或 WITH 查詢' };
   }
 
-  // 不能有多語句（用分號分隔多句）
   const statements = normalized.split(';').map((s) => s.trim()).filter(Boolean);
   if (statements.length > 1) {
     return { valid: false, error: '不允許多語句' };
   }
 
-  // 對於 WITH 開頭的語句，把開頭的 WITH...SELECT 視為一個整體，仍只檢查有沒有禁用字
-  // 然後檢查整個語句必須以 SELECT 結尾（常見 CTE 模式）
-
-  // 檢查禁用關鍵字
   const upper = normalized.toUpperCase();
   for (const kw of FORBIDDEN_KEYWORDS) {
     const re = new RegExp(`\\b${kw}\\b`, 'i');
@@ -67,14 +67,11 @@ export function validateSQL(sql: string): { valid: boolean; error?: string; norm
     }
   }
 
-  // 強制加 LIMIT
   let finalSQL = normalized;
   if (!/\bLIMIT\s+\d+/i.test(finalSQL)) {
     finalSQL += ' LIMIT 200';
   }
 
-  // 解析表名（粗略比對）— 確保都是 ALLOWED_TABLES
-  // 注意：CTE 名稱也會被抓到，但 CTE 是 WITH 內部定義的，視為合法
   const tableMatches = finalSQL.matchAll(/\b(FROM|JOIN)\s+([a-z_][a-z0-9_]*)/gi);
   for (const m of tableMatches) {
     const table = m[2].toLowerCase();
@@ -87,7 +84,6 @@ export function validateSQL(sql: string): { valid: boolean; error?: string; norm
 }
 
 function isLikelyCTERef(sql: string, name: string): boolean {
-  // 檢查 name 是否在 WITH 子句裡定義為 CTE
   const upper = sql.toUpperCase();
   const withMatch = upper.match(/WITH\s+(\w+(?:\s*,\s*\w+)*)\s+AS\s*\(/);
   if (withMatch) {
@@ -97,7 +93,12 @@ function isLikelyCTERef(sql: string, name: string): boolean {
   return false;
 }
 
-export function executeSafeQuery(rawSQL: string, maxRows = 100): SafeQueryResult {
+/**
+ * 執行安全 SQL 查詢 (async - 透過 server /api/ai/safe-query)
+ * Server 會重新驗證,即使 client 端驗證通過, server 還會擋
+ */
+export async function executeSafeQuery(rawSQL: string, maxRows = 100): Promise<SafeQueryResult> {
+  // Client-side 預先驗證 (UX: 在送 request 前就擋掉大部分錯誤)
   const validation = validateSQL(rawSQL);
   if (!validation.valid) {
     monitor.recordError(`AI SQL 驗證失敗: ${validation.error}`, 'ai.sqlValidate', 'warn', { sql: rawSQL });
@@ -105,14 +106,28 @@ export function executeSafeQuery(rawSQL: string, maxRows = 100): SafeQueryResult
   }
 
   try {
-    const rows = queryAll(validation.normalizedSQL!);
-    const limited = rows.slice(0, maxRows);
+    const result = await apiClient.post<{
+      ok: boolean;
+      rows?: any[];
+      sql?: string;
+      rowCount?: number;
+      error?: string;
+    }>('/api/ai/safe-query', {
+      sql: validation.normalizedSQL,
+      maxRows,
+    });
+
+    if (!result.ok) {
+      monitor.recordError(`AI SQL server 拒絕: ${result.error}`, 'ai.sqlValidate', 'warn', { sql: validation.normalizedSQL });
+      return { ok: false, error: result.error || 'server 拒絕執行' };
+    }
+
     monitor.increment('ai.sqlExecutes', 1);
     return {
       ok: true,
-      rows: limited,
-      sql: validation.normalizedSQL,
-      rowCount: limited.length,
+      rows: result.rows,
+      sql: result.sql,
+      rowCount: result.rowCount,
     };
   } catch (err: any) {
     monitor.recordError(`AI SQL 執行失敗: ${err.message}`, 'ai.sqlExecute', 'error', { sql: validation.normalizedSQL, error: err });

@@ -99,8 +99,9 @@ describe('SQL Validator', () => {
   });
 
   describe('executeSafeQuery - 整合', () => {
-    it('SQL 錯誤時不丟例外，回傳 ok: false', () => {
-      const r = executeSafeQuery('DROP TABLE residents');
+    it('SQL 錯誤時不丟例外,回傳 ok: false', async () => {
+      // M-62:executeSafeQuery 改成 async (server-side fetch)
+      const r = await executeSafeQuery('DROP TABLE residents');
       expect(r.ok).toBe(false);
       expect(r.error).toBeDefined();
     });

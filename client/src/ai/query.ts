@@ -103,8 +103,8 @@ export async function naturalLanguageQuery(
     };
   }
 
-  // 第二步：執行 SQL
-  const queryResult = executeSafeQuery(rawSQL, config.maxRowsPerQuery);
+  // 第二步：執行 SQL (server-side safe-query,async)
+  const queryResult = await executeSafeQuery(rawSQL, config.maxRowsPerQuery);
   if (!queryResult.ok) {
     return {
       answer: `查詢執行失敗：${queryResult.error}\n\nSQL：${validation.normalizedSQL}`,
