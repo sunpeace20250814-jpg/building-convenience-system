@@ -300,6 +300,11 @@ export const repositories = {
   home_tabs: new Repository('home_tabs'),
   home_records: new Repository('home_records'),
   backup_history: new Repository('backup_history'),
+  // M-55: 會計模組 repository (Sprint 3)
+  accounts: new Repository('accounts'),
+  journal_entries: new Repository('journal_entries'),
+  journal_lines: new Repository('journal_lines'),
+  accounting_periods: new Repository('accounting_periods'),
 } as const;
 
 // 兼容舊的 named export（既有 route 暫時還在用）

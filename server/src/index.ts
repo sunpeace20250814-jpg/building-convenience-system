@@ -73,6 +73,8 @@ import scheduleEntriesRoutes from './routes/schedule-entries.js';
 import scheduleNotesRoutes from './routes/schedule-notes.js';
 import { registerStringLengthLimits } from './routes/_crud.js'; // M-30 全域字串長度上限
 import uploadsRoutes from './routes/uploads.js';
+// M-55 修復 (2026-07-02): 會計核心 routes (Chart of Accounts + Journal + Periods)
+import { accountingRoutes } from './routes/accounting.js';
 
 // 雲端同步（直寫檔案，無 metadata 表）
 
@@ -210,6 +212,8 @@ async function start() {
   await fastify.register(holidayCategoriesRoutes, { prefix: '/api/holiday-categories' });
   await fastify.register(scheduleEntriesRoutes, { prefix: '/api/schedule-entries' });
   await fastify.register(scheduleNotesRoutes, { prefix: '/api/schedule-notes' });
+  // M-55 修復 (2026-07-02): 會計核心 routes (Chart of Accounts + Journal + Periods)
+  await fastify.register(accountingRoutes, { prefix: '/api/accounting' });
   // M-15 修復：圖片本地檔案系統（取代 base64）
   await fastify.register(uploadsRoutes, { prefix: '/api/upload' });
 

@@ -435,6 +435,64 @@ CREATE TABLE IF NOT EXISTS backup_history (
   note TEXT
 );
 
+-- ============================================================
+-- 會計核心模組 (M-55 修復 2026-07-02):Sprint 3 最小可用版
+-- ============================================================
+-- Chart of Accounts:科目表(支援 5 大類 + 子科目)
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,        -- 例如 '1101' (現金), '4101' (管理費收入)
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,                -- asset / liability / equity / revenue / expense
+  parent_id TEXT,                    -- 子科目掛父科目
+  description TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (parent_id) REFERENCES accounts(id) ON DELETE SET NULL
+);
+
+-- Journal Entries:日記帳分錄(複式記帳:每筆至少 1 借 + 1 貸,借貸必平)
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id TEXT PRIMARY KEY,
+  entry_date TEXT NOT NULL,           -- ISO date YYYY-MM-DD
+  description TEXT NOT NULL,
+  reference TEXT,                    -- 發票號碼 / 契約編號
+  status TEXT NOT NULL DEFAULT 'draft',  -- draft / posted / voided
+  posted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Journal Lines:分錄明細行(每筆 entry 至少 2 行)
+CREATE TABLE IF NOT EXISTS journal_lines (
+  id TEXT PRIMARY KEY,
+  entry_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  debit REAL NOT NULL DEFAULT 0,      -- 借方金額
+  credit REAL NOT NULL DEFAULT 0,     -- 貸方金額
+  memo TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+  FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
+  -- 借貸互斥:debit 跟 credit 不能同時 > 0
+  CHECK (NOT (debit > 0 AND credit > 0))
+);
+
+-- Accounting Periods:會計期間(每月一個,防止跨期改分錄)
+CREATE TABLE IF NOT EXISTS accounting_periods (
+  id TEXT PRIMARY KEY,
+  period_code TEXT NOT NULL UNIQUE,   -- 例如 '2026-07'
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  is_closed INTEGER NOT NULL DEFAULT 0,
+  closed_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_residents_building ON residents(building_id);
 CREATE INDEX IF NOT EXISTS idx_residents_floor ON residents(floor);
@@ -449,6 +507,15 @@ CREATE INDEX IF NOT EXISTS idx_expenses_date ON expense_records(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expense_records(category_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_type ON expense_records(type);
 CREATE INDEX IF NOT EXISTS idx_floors_building ON floors(building_id);
+
+-- M-55: 會計索引
+CREATE INDEX IF NOT EXISTS idx_accounts_code ON accounts(code);
+CREATE INDEX IF NOT EXISTS idx_accounts_type ON accounts(type);
+CREATE INDEX IF NOT EXISTS idx_accounts_parent ON accounts(parent_id);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_date ON journal_entries(entry_date);
+CREATE INDEX IF NOT EXISTS idx_journal_entries_status ON journal_entries(status);
+CREATE INDEX IF NOT EXISTS idx_journal_lines_entry ON journal_lines(entry_id);
+CREATE INDEX IF NOT EXISTS idx_journal_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_facilities_building ON facilities(building_id);
 CREATE INDEX IF NOT EXISTS idx_parking_resident ON parking_spots(resident_id);
 CREATE INDEX IF NOT EXISTS idx_parking_status ON parking_spots(status);
@@ -532,6 +599,10 @@ export const ALL_TABLES = [
   'home_records',
   'backup_history',
   'licenses',
+  'accounts',
+  'journal_entries',
+  'journal_lines',
+  'accounting_periods',
 ] as const;
 
 export type TableName = (typeof ALL_TABLES)[number];
