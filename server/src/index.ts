@@ -79,6 +79,8 @@ import { accountingRoutes } from './routes/accounting.js';
 import { accountingReportsRoutes } from './routes/accounting-reports.js';
 // M-58: 通知 routes (從 client-side migrate)
 import { notificationsRoutes } from './routes/notifications.js';
+// M-59: APP 系統紀錄 routes (從 client-side migrate)
+import { appLogsRoutes } from './routes/app-logs.js';
 
 // 雲端同步（直寫檔案，無 metadata 表）
 
@@ -222,6 +224,8 @@ async function start() {
   await fastify.register(accountingReportsRoutes, { prefix: '/api/accounting-reports' });
   // M-58: 通知 routes (從 client-side migrate 到 server-side)
   await fastify.register(notificationsRoutes);
+  // M-59: APP 系統紀錄 routes (從 client-side migrate 到 server-side)
+  await fastify.register(appLogsRoutes);
   // M-15 修復：圖片本地檔案系統（取代 base64）
   await fastify.register(uploadsRoutes, { prefix: '/api/upload' });
 

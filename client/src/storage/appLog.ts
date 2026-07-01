@@ -1,9 +1,13 @@
 /**
- * APP 系統紀錄服務
- * 統一記錄所有重要事件到 app_logs table
+ * APP 系統紀錄服務 — M-59 修復 (2026-07-01)
+ *
+ * 原本 client-side 用 execute/queryAll (storage/database.ts 已 throw-stub).
+ * 改成 fetch /api/app-logs 走 server-side SQLite.
+ *
+ * 注意: log() 是 fire-and-forget (不等回應), 失敗不影響主流程.
  */
 
-import { execute, queryAll } from './database';
+import { apiClient } from '@/lib/apiClient';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 export type LogSource = 'system' | 'user' | 'ai' | 'backup' | 'storage' | 'module';
@@ -25,31 +29,23 @@ export interface LogInput {
   action: string;
   message?: string;
   details?: Record<string, any>;
+  user?: string;
 }
 
 /**
- * 寫入一筆系統紀錄
+ * 寫入一筆系統紀錄 (fire-and-forget)
  */
 export function log(input: LogInput): void {
-  try {
-    const id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const timestamp = new Date().toISOString();
-    execute(
-      `INSERT INTO app_logs (id, timestamp, level, source, action, message, details) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        timestamp,
-        input.level || 'info',
-        input.source,
-        input.action,
-        input.message || '',
-        input.details ? JSON.stringify(input.details) : '',
-      ]
-    );
-  } catch (err) {
-    // 寫 log 失敗不應影響主流程
+  // 不 await - 寫 log 失敗不應影響主流程
+  apiClient.post('/api/app-logs', {
+    level: input.level ?? 'info',
+    source: input.source,
+    action: input.action,
+    message: input.message ?? '',
+    details: input.details,
+  }).catch((err) => {
     console.warn('[appLog] Failed to write log:', err);
-  }
+  });
 }
 
 export function logInfo(source: LogSource, action: string, message?: string, details?: any) {
@@ -68,33 +64,19 @@ export function logDebug(source: LogSource, action: string, message?: string, de
 /**
  * 查詢紀錄
  */
-export function getLogs(options: {
+export async function getLogs(options: {
   limit?: number;
   level?: LogLevel;
   source?: LogSource;
   search?: string;
-} = {}): AppLog[] {
+} = {}): Promise<AppLog[]> {
   try {
-    let sql = 'SELECT * FROM app_logs WHERE 1=1';
-    const params: any[] = [];
-
-    if (options.level) {
-      sql += ' AND level = ?';
-      params.push(options.level);
-    }
-    if (options.source) {
-      sql += ' AND source = ?';
-      params.push(options.source);
-    }
-    if (options.search) {
-      sql += ' AND (action LIKE ? OR message LIKE ?)';
-      params.push(`%${options.search}%`, `%${options.search}%`);
-    }
-
-    sql += ' ORDER BY timestamp DESC LIMIT ?';
-    params.push(options.limit || 200);
-
-    return queryAll<AppLog>(sql, params);
+    const params: Record<string, string> = {};
+    if (options.limit) params.limit = String(options.limit);
+    if (options.level) params.level = options.level;
+    if (options.source) params.source = options.source;
+    if (options.search) params.search = options.search;
+    return await apiClient.get<AppLog[]>('/api/app-logs', { params });
   } catch (err) {
     console.warn('[appLog] Failed to query logs:', err);
     return [];
@@ -104,26 +86,22 @@ export function getLogs(options: {
 /**
  * 清空紀錄
  */
-export function clearLogs(): void {
+export async function clearLogs(): Promise<void> {
   try {
-    execute('DELETE FROM app_logs');
+    await apiClient.delete('/api/app-logs');
   } catch {}
 }
 
 /**
  * 取得統計
  */
-export function getLogStats(): { total: number; byLevel: Record<string, number>; bySource: Record<string, number> } {
+export async function getLogStats(): Promise<{
+  total: number;
+  byLevel: Record<string, number>;
+  bySource: Record<string, number>;
+}> {
   try {
-    const rows = queryAll<any>('SELECT level, source, COUNT(*) as cnt FROM app_logs GROUP BY level, source');
-    const total = rows.reduce((s, r) => s + r.cnt, 0);
-    const byLevel: Record<string, number> = {};
-    const bySource: Record<string, number> = {};
-    for (const r of rows) {
-      byLevel[r.level] = (byLevel[r.level] || 0) + r.cnt;
-      bySource[r.source] = (bySource[r.source] || 0) + r.cnt;
-    }
-    return { total, byLevel, bySource };
+    return await apiClient.get('/api/app-logs/stats');
   } catch {
     return { total: 0, byLevel: {}, bySource: {} };
   }

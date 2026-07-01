@@ -17,20 +17,24 @@ const LEVEL_META: Record<LogLevel, { label: string; icon: any; color: string; bg
 
 export function AuditLogPage() {
   const [logs, setLogs] = useState<AppLog[]>([]);
-  const [stats, setStats] = useState(getLogStats());
+  const [stats, setStats] = useState<{ total: number; byLevel: Record<string, number>; bySource: Record<string, number> }>({ total: 0, byLevel: {}, bySource: {} });
   const [filterLevel, setFilterLevel] = useState<LogLevel | 'all'>('all');
   const [filterSource, setFilterSource] = useState<LogSource | 'all'>('all');
   const [search, setSearch] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const refresh = () => {
-    setLogs(getLogs({
-      level: filterLevel === 'all' ? undefined : filterLevel,
-      source: filterSource === 'all' ? undefined : filterSource,
-      search: search || undefined,
-      limit: 200,
-    }));
-    setStats(getLogStats());
+  const refresh = async () => {
+    const [nextLogs, nextStats] = await Promise.all([
+      getLogs({
+        level: filterLevel === 'all' ? undefined : filterLevel,
+        source: filterSource === 'all' ? undefined : filterSource,
+        search: search || undefined,
+        limit: 200,
+      }),
+      getLogStats(),
+    ]);
+    setLogs(nextLogs);
+    setStats(nextStats);
   };
 
   useEffect(() => {
@@ -49,9 +53,9 @@ export function AuditLogPage() {
     return () => clearInterval(timer);
   }, [autoRefresh, filterLevel, filterSource, search]);
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (!confirm('確定清空所有系統紀錄？')) return;
-    clearLogs();
+    await clearLogs();
     refresh();
     logInfo('user', '清空系統紀錄');
   };

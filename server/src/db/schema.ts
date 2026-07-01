@@ -389,6 +389,23 @@ CREATE TABLE IF NOT EXISTS training_records (
   FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
+-- APP 系統紀錄表 (M-59 修復 2026-07-01):
+--   原本 client/src/storage/appLog.ts 用 queryAll/execute 直接寫 client-side SQLite
+--   但 client storage 已是 throw-stub,資料會丟
+--   改用 server-side SQLite 持久化,讓 log 能跨重啟保留
+CREATE TABLE IF NOT EXISTS app_logs (
+  id TEXT PRIMARY KEY,
+  timestamp TEXT NOT NULL,
+  level TEXT NOT NULL,
+  source TEXT NOT NULL,
+  action TEXT NOT NULL,
+  message TEXT DEFAULT '',
+  details TEXT DEFAULT '',
+  user TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_app_logs_timestamp ON app_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_app_logs_level ON app_logs(level);
+
 -- 公告
 CREATE TABLE IF NOT EXISTS home_tabs (
   id TEXT PRIMARY KEY,
@@ -603,6 +620,7 @@ export const ALL_TABLES = [
   'journal_entries',
   'journal_lines',
   'accounting_periods',
+  'app_logs',
 ] as const;
 
 export type TableName = (typeof ALL_TABLES)[number];
