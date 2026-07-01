@@ -9,23 +9,15 @@
  */
 
 import { modules, type ModuleManifest } from './registry';
-// ★ M-50 修復 (2026-07-01): 會計模組 backend 尚未實作,暫時不 import manifest
-// import { doubleEntryManifest, seedDefaultAccounts } from './modules/double-entry';
-// import { accountsManifest } from './modules/accounts';
-// import { invoiceManifest } from './modules/invoice';
-// import { bankReconcileManifest } from './modules/bank-reconcile';
-// import { receivablesManifest } from './modules/receivables';
-// import { auditManifest } from './modules/audit';
-// import { reportingManifest } from './modules/reporting';
-// ★ Phase 9：execute/isReady 已從 @/storage/database 移除（V4 不再有本地 SQLite）
+// ★ M-60 修復 (2026-07-01): 複式記帳 server backend 已實作 (M-55 + M-56),重新加入 manifest
+import { doubleEntryManifest } from './modules/double-entry';
+// ★ M-50: 其他會計模組 (accounts / invoice / bank-reconcile / receivables / audit / reporting)
+//   仍 stub-driven,待各自 server backend 完成再放回
 import { monitor } from '@/monitoring/core';
 
-// ★ M-50 修復 (2026-07-01): 會計模組 backend 尚未實作,從 ALL_MODULES 移除避免用戶啟用後 crash
-//   - accounts / double-entry / invoice / bank-reconcile / receivables / audit / reporting
-//   - 全部 stub-driven,點進去就 throw 「storage/database.ts 已棄用」
-//   - 待 backend 實作後再放回 ALL_MODULES
 const ALL_MODULES: ModuleManifest[] = [
-  // 暫時全部禁用 — 待會計模組 backend 實作
+  // M-60: 複式記帳 (雙式記帳,含會計科目 + 分錄 + 4 報表 + 會計期間)
+  doubleEntryManifest,
 ];
 
 /** 註冊所有內建模組 */
@@ -73,8 +65,8 @@ export async function bootstrapModules(): Promise<void> {
 
   // 啟用複式記帳時 seed（server-side 處理）
   if (modules.isEnabled('double-entry')) {
-    // ★ M-50:double-entry 已停用,seedDefaultAccounts 也停用
-    // try { seedDefaultAccounts(); } catch {}
+    // ★ M-60: server-side 自動 seedStandardAccounts (M-55 accounts.ts)
+    //   client 不再需要 seedDefaultAccounts (throw-stub 已被移除)
   }
 
   monitor.recordMetric('modules.total', modules.all().length);

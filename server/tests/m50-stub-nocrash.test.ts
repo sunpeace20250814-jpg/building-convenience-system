@@ -54,32 +54,9 @@ describe('M-50 守護 — client storage/database.ts 不再 throw', () => {
   });
 });
 
-describe('M-50 守護 — 會計模組已從 sidebar 移除', () => {
-  // 確保 7 個會計 module manifest 已從 ALL_MODULES 移除
-  it('modules-system/index.ts 不應 import 任何會計 module manifest', () => {
-    const indexPath = join(
-      __dirname,
-      '../../client/src/modules-system/index.ts'
-    );
-    const source = readFileSync(indexPath, 'utf-8');
-
-    // 檢查 import 是否被註解掉
-    const imports = source.match(/^import\s+\{[^}]+\}\s+from\s+'\.\/modules\/[^']+'/gm) || [];
-    // 只允許 audit / reporting 等已被 disable 的,但不能 import 到 ALL_MODULES
-    // 驗證:active import 數量 = 0 (全部用 // 註解掉)
-    const activeImports = imports.filter(line => !line.match(/^\s*\/\//));
-    expect(activeImports.length).toBe(0);
-  });
-
-  it('各會計 module 的 defaultEnabled 應為 false', () => {
-    const modules = ['accounts', 'audit', 'reporting'];
-    for (const m of modules) {
-      const path = join(
-        __dirname,
-        `../../client/src/modules-system/modules/${m}.ts`
-      );
-      const source = readFileSync(path, 'utf-8');
-      expect(source).toMatch(/defaultEnabled:\s*false/);
-    }
-  });
-});
+// ★ M-60 修復 (2026-07-01):
+//   原本 M-50 有「會計模組已從 sidebar 移除」的守護 (lines 57-84),
+//   但 Sprint 7 已重新啟用 double-entry module (server backend 已實作).
+//   此守護已過時,改由 M-60 守護取代 (tests/m60-accounting-ui.test.ts).
+//   accounts / audit / reporting 等仍 stub-driven,保留 defaultEnabled: false
+//   是它們各自的 module manifest 職責,不需 m50 級別的 sidebar 守護.
