@@ -75,6 +75,8 @@ import { registerStringLengthLimits } from './routes/_crud.js'; // M-30 全域�
 import uploadsRoutes from './routes/uploads.js';
 // M-55 修復 (2026-07-02): 會計核心 routes (Chart of Accounts + Journal + Periods)
 import { accountingRoutes } from './routes/accounting.js';
+// M-56 修復 (2026-07-01): 會計報表 routes (Trial Balance / Balance Sheet / Income Statement / Cash Flow)
+import { accountingReportsRoutes } from './routes/accounting-reports.js';
 
 // 雲端同步（直寫檔案，無 metadata 表）
 
@@ -214,6 +216,8 @@ async function start() {
   await fastify.register(scheduleNotesRoutes, { prefix: '/api/schedule-notes' });
   // M-55 修復 (2026-07-02): 會計核心 routes (Chart of Accounts + Journal + Periods)
   await fastify.register(accountingRoutes, { prefix: '/api/accounting' });
+  // M-56: 會計報表 routes
+  await fastify.register(accountingReportsRoutes, { prefix: '/api/accounting-reports' });
   // M-15 修復：圖片本地檔案系統（取代 base64）
   await fastify.register(uploadsRoutes, { prefix: '/api/upload' });
 
