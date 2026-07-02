@@ -132,23 +132,60 @@ export function AIModule() {
       if (!overrideContent) setInput('');
       setBusy(true);
 
+      // 建立 streaming ai message (佔位)
+      const aiMsgId = `ai-${Date.now()}`;
+      const streamingMsg: ChatMessage = {
+        id: aiMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        streaming: true,
+      };
+      setMessages((m) => [...m, streamingMsg]);
+
       try {
-        const result = await naturalLanguageQuery(config, text);
-        const aiMsg: ChatMessage = {
-          id: `ai-${Date.now()}`,
-          role: 'assistant',
-          content: result.answer,
-          sql: result.sql,
-          results: result.results,
-          error: result.error,
-          durationMs: result.durationMs,
-          timestamp: Date.now(),
-        };
-        setMessages((m) => {
-          const next = [...m, aiMsg];
-          saveConversations(next);
-          return next;
+        const result = await naturalLanguageQuery(config, text, {
+          onSummaryDelta: (streamed) => {
+            setMessages((m) =>
+              m.map((msg) =>
+                msg.id === aiMsgId
+                  ? { ...msg, content: streamed, streaming: true }
+                  : msg
+              )
+            );
+          },
         });
+        // 完成:把 streaming 標記移除
+        setMessages((m) =>
+          m.map((msg) =>
+            msg.id === aiMsgId
+              ? {
+                  ...msg,
+                  content: result.answer,
+                  sql: result.sql,
+                  results: result.results,
+                  error: result.error,
+                  durationMs: result.durationMs,
+                  streaming: false,
+                }
+              : msg
+          )
+        );
+        saveConversations(
+          messages.concat([
+            userMsg,
+            {
+              id: aiMsgId,
+              role: 'assistant',
+              content: result.answer,
+              sql: result.sql,
+              results: result.results,
+              error: result.error,
+              durationMs: result.durationMs,
+              timestamp: Date.now(),
+            },
+          ])
+        );
 
         if (config.enableAuditLog) {
           monitor.recordError(
@@ -160,23 +197,31 @@ export function AIModule() {
         }
       } catch (err: any) {
         const friendlyMsg = friendlyError(err);
-        const errMsg: ChatMessage = {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: `錯誤：${friendlyMsg}`,
-          error: friendlyMsg,
-          timestamp: Date.now(),
-        };
-        setMessages((m) => {
-          const next = [...m, errMsg];
-          saveConversations(next);
-          return next;
-        });
+        // 把剛建立的 streaming message 換成錯誤訊息
+        setMessages((m) =>
+          m.map((msg) =>
+            msg.id === aiMsgId
+              ? { ...msg, content: `錯誤:${friendlyMsg}`, error: friendlyMsg, streaming: false }
+              : msg
+          )
+        );
+        saveConversations(
+          messages.concat([
+            userMsg,
+            {
+              id: aiMsgId,
+              role: 'assistant',
+              content: `錯誤:${friendlyMsg}`,
+              error: friendlyMsg,
+              timestamp: Date.now(),
+            },
+          ])
+        );
       } finally {
         setBusy(false);
       }
     },
-    [busy, config, input]
+    [busy, config, input, messages]
   );
 
   const handleTestConnection = async () => {
@@ -493,6 +538,20 @@ export function AIModule() {
                 placeholder="額外指示,可留空"
               />
             </div>
+
+            <div className="col-span-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="enableStreaming"
+                checked={config.enableStreaming}
+                onChange={(e) => updateConfig({ enableStreaming: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="enableStreaming" className="text-xs text-gray-700 cursor-pointer">
+                <Zap className="w-3 h-3 inline" />
+                啟用 streaming 回應(邊生成邊顯示,推薦)
+              </label>
+            </div>
           </div>
 
           <div className="mt-4 flex items-center gap-2 flex-wrap">
@@ -644,7 +703,12 @@ function MessageBubble({
           </div>
         ) : (
           <>
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap">
+              {message.content || (message.streaming ? '' : '(空白回應)')}
+              {message.streaming && (
+                <span className="inline-block w-2 h-4 ml-1 bg-indigo-500 animate-pulse align-text-bottom" title="生成中..." />
+              )}
+            </p>
             {message.sql && (
               <details className="mt-2 text-xs">
                 <summary className={`cursor-pointer ${isUser ? 'text-blue-100' : 'text-gray-500'}`}>
@@ -662,6 +726,14 @@ function MessageBubble({
             )}
             {message.error && (
               <Badge variant="danger" className="mt-2">錯誤</Badge>
+            )}
+            {message.streaming && (
+              <span className={`text-xs mt-2 inline-flex items-center gap-1 ${isUser ? 'text-blue-100' : 'text-indigo-600'}`}>
+                <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" />
+                <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: '0.15s' }} />
+                <span className="inline-block w-1.5 h-1.5 bg-current rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
+                生成中...
+              </span>
             )}
             <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button

@@ -1,14 +1,20 @@
 /**
  * AI 自然語言查詢
- * 給 LLM 完整 schema，把使用者問題轉成 SQL，執行後回傳結果
+ * 給 LLM 完整 schema,把使用者問題轉成 SQL,執行後回傳結果
+ *
+ * M-63 完善化 (2026-07-02):
+ *   - 加 streaming 支援 (callLLMStream)
+ *   - onDelta callback 即時更新內容
+ *   - 三步驟流程: 1) 問題轉 SQL  2) 執行  3) 摘要回應
+ *     只有第 3 步 (摘要) 用 streaming,第 1 步需要完整 SQL 才能 validate
  */
 
-import { callLLM } from './service';
+import { callLLM, callLLMStream } from './service';
 import { AIConfig } from './config';
 import { executeSafeQuery, validateSQL } from './sql-executor';
 
 const SCHEMA_DESCRIPTION = `
-你是一個 SQL 助手。使用者的 SQLite 資料庫 schema 如下：
+你是一個 SQL 助手。使用者的 SQLite 資料庫 schema 如下:
 
 **residents** (住戶):
 - id TEXT PK, building_id, floor TEXT, unit_type ('normal'|'rental'), unit_number,
@@ -64,25 +70,49 @@ const SCHEMA_DESCRIPTION = `
 **status_options** (狀態選項):
 - id, type ('resident'|'parking'), label, color, sort_order
 
-注意：
+**accounts** (會計科目):
+- id, code, name, type ('asset'|'liability'|'equity'|'revenue'|'expense'),
+  parent_id, description, is_active INTEGER, created_at, updated_at
+
+**journal_entries** (分錄):
+- id, entry_date, description, reference, status ('draft'|'posted'|'voided'),
+  posted_at, created_at, updated_at
+
+**journal_lines** (分錄明細):
+- id, entry_id FK, account_id FK, debit REAL, credit REAL, memo, sort_order, created_at
+
+**accounting_periods** (會計期間):
+- id, period_code, start_date, end_date, is_closed INTEGER, closed_at, created_at, updated_at
+
+注意:
 - 全部用 snake_case 欄位名
-- 只能用 SELECT，不能修改資料
+- 只能用 SELECT,不能修改資料
 - 回傳的結果要 LIMIT 200 筆
 - 用中文回答使用者
 `.trim();
 
+export interface NaturalLanguageQueryCallbacks {
+  /** 第一步 (問題轉 SQL) 完成時呼叫 */
+  onSqlReady?: (sql: string) => void;
+  /** 第二步 (執行 SQL) 完成時呼叫 */
+  onResults?: (results: any[]) => void;
+  /** 第三步 (摘要回應) streaming delta — 邊生成邊顯示 */
+  onSummaryDelta?: (chunk: string) => void;
+}
+
 export async function naturalLanguageQuery(
   config: AIConfig,
-  question: string
+  question: string,
+  callbacks: NaturalLanguageQueryCallbacks = {}
 ): Promise<{ answer: string; sql?: string; results?: any[]; error?: string; durationMs: number }> {
   const start = performance.now();
 
-  // 第一步：把問題轉成 SQL
+  // 第一步:把問題轉成 SQL (需要完整 SQL 才能 validate,所以這步不用 streaming)
   const sqlResult = await callLLM(
     config,
     [
-      { role: 'system', content: SCHEMA_DESCRIPTION + '\n\n請只回傳 SQL 語法，不要加任何解釋或 markdown 標記。' },
-      { role: 'user', content: `把這個問題轉成 SQL：${question}` },
+      { role: 'system', content: SCHEMA_DESCRIPTION + '\n\n請只回傳 SQL 語法,不要加任何解釋或 markdown 標記。' },
+      { role: 'user', content: `把這個問題轉成 SQL:${question}` },
     ],
     { temperature: 0.1, maxTokens: 500 }
   );
@@ -96,43 +126,60 @@ export async function naturalLanguageQuery(
   const validation = validateSQL(rawSQL);
   if (!validation.valid) {
     return {
-      answer: `SQL 驗證失敗：${validation.error}\n\n生成的 SQL：${rawSQL}`,
+      answer: `SQL 驗證失敗:${validation.error}\n\n生成的 SQL:${rawSQL}`,
       sql: rawSQL,
       error: validation.error,
       durationMs: performance.now() - start,
     };
   }
 
-  // 第二步：執行 SQL (server-side safe-query,async)
+  callbacks.onSqlReady?.(validation.normalizedSQL!);
+
+  // 第二步:執行 SQL (server-side safe-query)
   const queryResult = await executeSafeQuery(rawSQL, config.maxRowsPerQuery);
+  callbacks.onResults?.(queryResult.rows ?? []);
   if (!queryResult.ok) {
     return {
-      answer: `查詢執行失敗：${queryResult.error}\n\nSQL：${validation.normalizedSQL}`,
+      answer: `查詢執行失敗:${queryResult.error}\n\nSQL:${validation.normalizedSQL}`,
       sql: validation.normalizedSQL,
       error: queryResult.error,
       durationMs: performance.now() - start,
     };
   }
 
-  // 第三步：把結果用自然語言摘要
-  const summaryResult = await callLLM(
-    config,
-    [
-      { role: 'system', content: '你是資料分析助手。請用繁體中文摘要查詢結果，重點說明趨勢、異常或值得注意的數字。' },
-      {
-        role: 'user',
-        content: `使用者問題：${question}\n\nSQL 查詢：${validation.normalizedSQL}\n\n結果（${queryResult.rowCount} 筆）：\n${JSON.stringify(queryResult.rows?.slice(0, 20), null, 2)}`,
-      },
-    ],
-    { temperature: 0.5 }
-  );
+  // 第三步:把結果用自然語言摘要 (支援 streaming)
+  const summaryMessages = [
+    { role: 'system' as const, content: '你是資料分析助手。請用繁體中文摘要查詢結果,重點說明趨勢、異常或值得注意的數字。' },
+    {
+      role: 'user' as const,
+      content: `使用者問題:${question}\n\nSQL 查詢:${validation.normalizedSQL}\n\n結果(${queryResult.rowCount} 筆):\n${JSON.stringify(queryResult.rows?.slice(0, 20), null, 2)}`,
+    },
+  ];
 
-  return {
-    answer: summaryResult.content,
-    sql: validation.normalizedSQL,
-    results: queryResult.rows,
-    durationMs: performance.now() - start,
-  };
+  if (config.enableStreaming && callbacks.onSummaryDelta) {
+    // Streaming 模式
+    let streamed = '';
+    callbacks.onSummaryDelta(''); // 初始化
+    const streamResult = await callLLMStream(config, summaryMessages, (chunk) => {
+      streamed += chunk;
+      callbacks.onSummaryDelta!(streamed);
+    });
+    return {
+      answer: streamResult.content || streamed,
+      sql: validation.normalizedSQL,
+      results: queryResult.rows,
+      durationMs: performance.now() - start,
+    };
+  } else {
+    // 一般模式
+    const summaryResult = await callLLM(config, summaryMessages, { temperature: 0.5 });
+    return {
+      answer: summaryResult.content,
+      sql: validation.normalizedSQL,
+      results: queryResult.rows,
+      durationMs: performance.now() - start,
+    };
+  }
 }
 
 export async function analyzeData(

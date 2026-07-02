@@ -214,6 +214,116 @@ export async function callLLM(
 }
 
 /**
+ * Streaming LLM 呼叫 (SSE)
+ *
+ * OpenAI 相容 API: stream=true → 回傳 SSE 格式
+ *   data: {"choices":[{"delta":{"content":"..."}}]}
+ *   ...
+ *   data: [DONE]
+ *
+ * Anthropic: stream=true → 不同的 SSE 格式 (event: content_block_delta)
+ *   簡化: Anthropic 不支援原生 streaming (用 SSE 但格式不同),先只支援 OpenAI / MiniMax
+ *
+ * onDelta(chunk): 每次收到新內容就呼叫 (即時顯示)
+ * 回傳完整字串
+ */
+export async function callLLMStream(
+  config: AIConfig,
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  onDelta: (chunk: string) => void,
+  options: AIRequestOptions = {}
+): Promise<{ content: string; usage?: any; raw?: any }> {
+  const start = performance.now();
+
+  if (!config.apiKey) {
+    throw new Error('尚未設定 API Key');
+  }
+
+  const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const body = {
+    model: options.model || config.model,
+    messages,
+    temperature: options.temperature ?? config.temperature,
+    max_tokens: options.maxTokens ?? config.maxTokens,
+    stream: true,
+  };
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (config.provider === 'anthropic') {
+    headers['x-api-key'] = config.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+  } else {
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok || !response.body) {
+    const text = await response.text();
+    throw new Error(friendlyError(`API 錯誤 ${response.status}: ${text}`));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullContent = '';
+  let usage: any = undefined;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE 訊息以 \n\n 分隔
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? ''; // 保留未完成的行
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullContent += delta;
+            onDelta(delta);
+          }
+          if (parsed.usage) {
+            usage = parsed.usage;
+          }
+        } catch {
+          // ignore malformed chunk
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const duration = performance.now() - start;
+  monitor.recordPerf('ai.llmCall', duration, true, { model: body.model, tokens: usage?.total_tokens, stream: true });
+  monitor.increment('ai.requests', 1, { model: body.model });
+  if (usage?.total_tokens) {
+    monitor.recordMetric('ai.tokens', usage.total_tokens, { model: body.model });
+    monitor.recordMetric('ai.promptTokens', usage.prompt_tokens ?? 0, { model: body.model });
+    monitor.recordMetric('ai.completionTokens', usage.completion_tokens ?? 0, { model: body.model });
+  }
+
+  return { content: fullContent, usage, raw: { streamed: true } };
+}
+
+/**
  * 取得 AI token 用量摘要 (從 monitor metrics 讀取)
  * 用於 UI 顯示月方案用量估算
  *

@@ -24,6 +24,8 @@ export interface AIConfig {
   enableSuggestions: boolean;
   maxRowsPerQuery: number;
   enableAuditLog: boolean;
+  /** M-63: 啟用 streaming 回應 (邊生成邊顯示) */
+  enableStreaming?: boolean;
 }
 
 export const DEFAULT_CONFIG: AIConfig = {
@@ -39,6 +41,7 @@ export const DEFAULT_CONFIG: AIConfig = {
   enableSuggestions: true,
   maxRowsPerQuery: 100,
   enableAuditLog: true,
+  enableStreaming: true,
 };
 
 // 在 sessionStorage 緩存 derive 出來的 CryptoKey（避免每次讀取都要密碼）
